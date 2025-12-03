@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Taller de GNURadio: Procesamiento y Análisis de Señales</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            svg: {
+                fontCache: 'global'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    
+    <style>
+        /* Estilos personalizados para complementar Tailwind */
+        body {
+            background-color: #fdfaf4; /* Tono crema suave igual que los otros html */
+            color: #333;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+        }
+        h1, h2, h3, h4 {
+            color: #111;
+            font-weight: 700;
+        }
+        h1 { margin-bottom: 1.5rem; color: #d97706; /* Amber-600 */ }
+        h2 { 
+            margin-top: 3rem; 
+            margin-bottom: 1rem; 
+            border-bottom: 2px solid #e5e7eb; 
+            padding-bottom: 0.5rem;
+            color: #2563eb; /* Blue-600 */
+        }
+        h3 { margin-top: 1.5rem; margin-bottom: 0.75rem; color: #4b5563; }
+        h4 { margin-top: 1rem; margin-bottom: 0.5rem; color: #4b5563; }
+        
+        p { margin-bottom: 1rem; }
+        
+        /* Estilos para Tablas */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            background-color: #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+        th, td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        th {
+            background-color: #f3f4f6;
+            font-weight: 600;
+            color: #374151;
+        }
+        tr:last-child td { border-bottom: none; }
+        
+        /* Estilos para Listas */
+        ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1rem; }
+        li { margin-bottom: 0.25rem; }
+        
+        /* Estilos para Código y Matemáticas */
+        code {
+            background-color: #f3f4f6;
+            padding: 0.2rem 0.4rem;
+            border-radius: 0.25rem;
+            font-family: monospace;
+            font-size: 0.9em;
+            color: #c026d3;
+        }
+        .math-block {
+            overflow-x: auto;
+            padding: 1rem;
+            background-color: #fff;
+            border-radius: 0.5rem;
+            margin: 1rem 0;
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+
+        /* Botones de enlace */
+        a.btn-link {
+            display: inline-block;
+            background-color: #2563eb;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            text-decoration: none;
+            font-weight: 600;
+            transition: background-color 0.2s;
+            margin-top: 0.5rem;
+        }
+        a.btn-link:hover { background-color: #1d4ed8; }
+        
+        /* Contenedor principal */
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+            background-color: #ffffff;
+            min-height: 100vh;
+            box-shadow: 0 0 20px rgba(0,0,0,0.05);
+        }
+        .module-section { margin-bottom: 4rem; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <header class="mb-12 text-center border-b pb-8">
+        <h1 class="text-4xl">Taller de GNURadio: Procesamiento y Análisis de Señales</h1>
+        <p class="text-lg text-gray-600">
+            Bienvenido a la documentación interactiva del taller extra de GNURadio enfocado en la recepción y procesamiento de señales mediante hardware RTL-SDR. Este repositorio sirve como índice y guía técnica para comprender los flujos de trabajo (<em>flowgraphs</em>) diseñados.
+        </p>
+        <p class="text-gray-500 italic mt-4">
+            A continuación, se detallan los distintos módulos, explicando los fundamentos teóricos de procesamiento digital de señales (DSP) y la justificación técnica de cada bloque utilizado.
+        </p>
+    </header>
+
+    <section class="module-section">
+        <h2>1. Modulación de Amplitud (AM)</h2>
+        <p>Este módulo simula la transmisión de una señal de audio (mensaje) montada sobre una onda de radiofrecuencia (portadora). El objetivo es comprender cómo variamos la amplitud de la portadora en función del mensaje sin perder información.</p>
+
+        <h3>Fundamentos Teóricos</h3>
+        <p>La Modulación de Amplitud (AM) estándar se define matemáticamente en el dominio del tiempo como:</p>
+        <div class="math-block">
+            $$s(t) = [A_c + m(t)] \cdot \cos(2\pi f_c t)$$
+        </div>
+        <p>Donde:</p>
+        <ul>
+            <li>$A_c$: Amplitud de la componente de corriente continua (DC) o portadora pura.</li>
+            <li>$m(t)$: Señal moduladora (el mensaje/audio).</li>
+            <li>$f_c$: Frecuencia de la portadora.</li>
+        </ul>
+        <p>Para evitar la <strong>sobremodulación</strong> (que causa inversión de fase y distorsión en la recepción), la envolvente $[A_c + m(t)]$ debe ser siempre positiva. Esto se controla mediante el índice de modulación.</p>
+
+        <h3>Conceptos Clave del Diagrama</h3>
+        
+        <h4>A. Frecuencia de Muestreo (Sample Rate)</h4>
+        <p>En el mundo digital (DSP), no tenemos señales continuas, sino puntos discretos. La variable <code>samp_rate</code> es crítica. Según el <strong>Teorema de Nyquist-Shannon</strong>, para reconstruir una señal sin errores, la frecuencia de muestreo $f_s$ debe ser:</p>
+        <div class="math-block">
+            $$f_s > 2 \cdot f_{max}$$
+        </div>
+        <p>Si configuramos un <code>samp_rate</code> muy bajo en el simulador, verás el efecto de <strong>Aliasing</strong>: la señal se "dobla" y aparecen frecuencias fantasmas que no existen en la realidad.</p>
+
+        <h4>B. Acondicionamiento de la Señal</h4>
+        <p>En GNURadio, para lograr una AM estándar (y no una DSB-SC o Doble Banda Lateral con Portadora Suprimida), debemos manipular el mensaje antes de multiplicarlo.</p>
+        <ol class="list-decimal pl-6 mb-4">
+            <li><strong>Multiply Const ($k_a$):</strong> Controla el índice de modulación. Si $k_a > 1$, la señal cruza por cero y se produce sobremodulación.</li>
+            <li><strong>Add Const (+1):</strong> Este bloque es fundamental. Sumar una constante añade un <strong>offset DC</strong>. Esto "levanta" la señal del mensaje sobre el eje X, asegurando que, al multiplicarla por la portadora, la envolvente no se invierta.</li>
+        </ol>
+
+        <h3>Desglose de Bloques (Flowgraph)</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Bloque</th>
+                    <th>Función Técnica</th>
+                    <th>¿Por qué lo usamos?</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Variable (<code>samp_rate</code>)</strong></td>
+                    <td>Define la velocidad del reloj del sistema.</td>
+                    <td>Sincroniza todos los bloques. Debe ser suficiente para cubrir el ancho de banda total ($f_c + f_m$).</td>
+                </tr>
+                <tr>
+                    <td><strong>Signal Source (Mensaje)</strong></td>
+                    <td>Genera una onda coseno de baja frecuencia ($f_m \approx 4\text{kHz}$).</td>
+                    <td>Simula la voz o música que queremos transmitir.</td>
+                </tr>
+                <tr>
+                    <td><strong>Multiply Const</strong></td>
+                    <td>Escala la amplitud del mensaje por un factor $k_a$.</td>
+                    <td>Permite ajustar la profundidad de modulación.</td>
+                </tr>
+                <tr>
+                    <td><strong>Add Const</strong></td>
+                    <td>Suma un valor escalar (generalmente 1) a la señal.</td>
+                    <td>Inserta la portadora en la señal base. Matemáticamente: $1 + k_a \cdot \cos(\dots)$.</td>
+                </tr>
+                <tr>
+                    <td><strong>Signal Source (Portadora)</strong></td>
+                    <td>Genera una onda de alta frecuencia ($f_c \approx 20\text{kHz}$ o más).</td>
+                    <td>Es el "vehículo" de transporte que viaja por el aire.</td>
+                </tr>
+                <tr>
+                    <td><strong>Multiply</strong></td>
+                    <td>Multiplica señal acondicionada $\times$ portadora.</td>
+                    <td>Realiza la modulación propiamente dicha (traslación en frecuencia).</td>
+                </tr>
+                <tr>
+                    <td><strong>QT GUI Range</strong></td>
+                    <td>Deslizadores gráficos.</td>
+                    <td>Permite modificar $f_c$, $f_m$ y $k_a$ en tiempo real para observar los cambios en el espectro.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>➡️ Simulación Interactiva</h3>
+        <p>Accede al simulador web para experimentar con el Teorema de Nyquist, ver el efecto de la sobremodulación en el dominio del tiempo y analizar el espectro de frecuencia resultante.</p>
+        <a href="./modam.html" class="btn-link">Ver Simulación: Modulación AM</a>
+    </section>
+
+    <section class="module-section">
+        <h2>2. Fundamentos: Generación y Superposición</h2>
+        <p>Antes de procesar señales de radio complejas, es fundamental entender cómo se crean y combinan las señales en GNURadio. Este módulo explica el <strong>Principio de Superposición</strong> y el manejo de archivos.</p>
+
+        <h3>Conceptos Clave</h3>
+        <ul>
+            <li><strong>Superposición:</strong> En un medio lineal, la señal resultante en cualquier punto es la suma algebraica de las señales individuales: $y(t) = y_1(t) + y_2(t)$. Esto permite simular interferencias constructivas y destructivas.</li>
+            <li><strong>Throttle (Cuello de Botella):</strong> En una simulación que no involucra hardware físico (como una radio SDR o tarjeta de audio), el ordenador procesará los datos tan rápido como pueda la CPU (millones de muestras por segundo). El bloque <em>Throttle</em> frena el flujo para igualar el <code>samp_rate</code> definido, permitiendo visualizar la señal en tiempo real sin congelar la interfaz.</li>
+        </ul>
+
+        <h3>Desglose de Bloques</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Bloque</th>
+                    <th>Función Técnica</th>
+                    <th>¿Por qué lo usamos?</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Signal Source</strong></td>
+                    <td>Generador de forma de onda (Seno, Coseno, etc.).</td>
+                    <td>Crea señales de prueba puras con frecuencia y amplitud conocidas.</td>
+                </tr>
+                <tr>
+                    <td><strong>Add</strong></td>
+                    <td>Sumador aritmético punto a punto.</td>
+                    <td>Simula la mezcla de señales en el aire o en un cable.</td>
+                </tr>
+                <tr>
+                    <td><strong>Throttle</strong></td>
+                    <td>Limitador de flujo de datos.</td>
+                    <td><strong>Obligatorio</strong> en simulaciones puras para evitar el uso del 100% de CPU.</td>
+                </tr>
+                <tr>
+                    <td><strong>File Sink</strong></td>
+                    <td>Escritura en disco (Binary float 32-bit).</td>
+                    <td>Guarda la señal "cruda" para ser procesada posteriormente o analizada en otro software (Matlab/Python).</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>➡️ Simulación Interactiva</h3>
+        <p>Prueba a sumar dos frecuencias cercanas (ej. 1000Hz y 1100Hz) para ver el fenómeno de "batido" en el tiempo.</p>
+        <a href="./dam-1.html" class="btn-link">Ver Simulación: Generador de Ondas</a>
+    </section>
+
+    <section class="module-section">
+        <h2>3. Receptor AM (Parte 1): Traslación y Decimación</h2>
+        <p>Este módulo inicia la cadena de recepción. Partimos de una grabación de radio real capturada con un SDR (<code>am_usrp710.dat</code>) que contiene mucho ruido y señales en frecuencias que no nos interesan.</p>
+
+        <h3>Fundamentos Teóricos</h3>
+        <ul>
+            <li>
+                <strong>Mezcla de Frecuencia (Traslación):</strong> La señal de interés (voz) está en una frecuencia alta (ej. 80kHz relativos). Para trabajar con ella, debemos "bajarla" a banda base (0 Hz). Esto se logra multiplicando la señal de entrada $x(t)$ por un oscilador local complejo $e^{-j\omega_c t}$.
+                <div class="math-block">$$x_{base}(t) = x_{rf}(t) \cdot e^{-j 2\pi f_c t}$$</div>
+            </li>
+            <li>
+                <strong>Decimación:</strong> La grabación original tiene una tasa de muestreo ($f_s$) de <strong>256 kHz</strong>. Procesar tantos datos es ineficiente para una señal de audio que solo necesita ~4 kHz de ancho de banda. La decimación consiste en quedarse con 1 de cada $N$ muestras.
+                <ul>
+                    <li>Entrada: 256 kHz.</li>
+                    <li>Decimación $N=4$.</li>
+                    <li>Salida: $256 / 4 = 64 \text{ kHz}$.</li>
+                </ul>
+            </li>
+        </ul>
+
+        <h3>Desglose de Bloques</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Bloque</th>
+                    <th>Función Técnica</th>
+                    <th>¿Por qué lo usamos?</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>File Source</strong></td>
+                    <td>Lectura de archivo binario complejo.</td>
+                    <td>Inyecta los datos IQ grabados previamente con el SDR.</td>
+                </tr>
+                <tr>
+                    <td><strong>Signal Source</strong></td>
+                    <td>Generador de portadora negativa (-80kHz).</td>
+                    <td>Crea la señal necesaria para cancelar la frecuencia de la emisora original y moverla a 0Hz.</td>
+                </tr>
+                <tr>
+                    <td><strong>Multiply</strong></td>
+                    <td>Mezclador (Mixer).</td>
+                    <td>Ejecuta la traslación de frecuencia matemática.</td>
+                </tr>
+                <tr>
+                    <td><strong>Low Pass Filter</strong></td>
+                    <td>Filtro Pasa Bajos + Decimador.</td>
+                    <td><strong>Doble función:</strong> 1. Elimina frecuencias fuera del canal de audio (anti-aliasing). 2. Reduce la velocidad de muestreo (Divide por 4).</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>➡️ Simulación Interactiva</h3>
+        <p>Visualiza cómo la señal se mueve en el espectro al cambiar la frecuencia del oscilador local y observa el efecto del filtrado.</p>
+        <a href="./dam-2.html" class="btn-link">Ver Simulación: Demodulación y Decimación</a>
+    </section>
+
+    <section class="module-section">
+        <h2>4. Receptor AM (Parte 2): Audio y Resampleo</h2>
+        <p>Etapa final del receptor. Convertimos la señal de radiofrecuencia (ya filtrada y centrada) en sonido audible por los altavoces del ordenador.</p>
+
+        <h3>Fundamentos Teóricos</h3>
+        <ul>
+            <li><strong>Demodulación AM (Detector de Envolvente):</strong> En AM, la información está en la amplitud. Matemáticamente, si tenemos una señal compleja $z(t) = I + jQ$, la amplitud instantánea se obtiene calculando su magnitud:
+                <div class="math-block">$$|z(t)| = \sqrt{I^2 + Q^2}$$</div>
+            </li>
+            <li><strong>Eliminación de DC:</strong> La señal demodulada incluye la portadora (offset DC). Si enviamos esto al altavoz, el cono se desplazaría hacia afuera constantemente, calentando la bobina y distorsionando el audio. Usamos un filtro para eliminar la componente de 0Hz.</li>
+            <li><strong>Resampleo Racional:</strong> Las tarjetas de sonido estándar funcionan a <strong>48 kHz</strong> (o 44.1 kHz). Nosotros venimos de <strong>64 kHz</strong> (del paso anterior). Necesitamos convertir matemáticamente la tasa de muestreo:
+                <div class="math-block">$$64.000 \times \frac{3}{4} = 48.000 \text{ Hz}$$</div>
+            </li>
+        </ul>
+
+        <h3>Desglose de Bloques</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Bloque</th>
+                    <th>Función Técnica</th>
+                    <th>¿Por qué lo usamos?</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Complex to Mag</strong></td>
+                    <td>Cálculo de módulo $|z|$.</td>
+                    <td>Extrae la envolvente de la señal (el audio + portadora). Es el demodulador AM propiamente dicho.</td>
+                </tr>
+                <tr>
+                    <td><strong>DC Blocker</strong></td>
+                    <td>Filtro de rechazo de banda (Notch en 0Hz).</td>
+                    <td>Elimina la componente continua (DC) para centrar la señal de audio en 0.</td>
+                </tr>
+                <tr>
+                    <td><strong>Multiply Const</strong></td>
+                    <td>Ganancia escalar.</td>
+                    <td>Funciona como control de <strong>Volumen</strong>.</td>
+                </tr>
+                <tr>
+                    <td><strong>Rational Resampler</strong></td>
+                    <td>Interpolación (3) y Decimación (4).</td>
+                    <td>Adapta la velocidad de datos de 64k a 48k para que la tarjeta de sonido pueda reproducirla correctamente.</td>
+                </tr>
+                <tr>
+                    <td><strong>Audio Sink</strong></td>
+                    <td>Salida a Hardware.</td>
+                    <td>Envía el flujo de datos final a los altavoces del sistema.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>➡️ Simulación Interactiva</h3>
+        <p>Experimenta con el bloque DC Blocker para ver cómo afecta a la forma de onda y entiende visualmente la diferencia entre la señal de radio (espectro) y la de audio (tiempo).</p>
+        <a href="./dam-3.html" class="btn-link">Ver Simulación: Receptor AM Completo</a>
+    </section>
+
+    <section class="module-section">
+        <h2>5. Banda Lateral Única (SSB): Eficiencia Espectral</h2>
+        <p>La Modulación de Amplitud (AM) es ineficiente: gasta potencia en la portadora (que no lleva información) y transmite la misma información duplicada en dos bandas laterales. <strong>SSB (Single Sideband)</strong> elimina la portadora y una de las bandas, concentrando toda la potencia en la voz y ocupando la mitad de ancho de banda.</p>
+        <p>Para lograr esto digitalmente sin filtros analógicos de cristal costosos, utilizamos el <strong>Método de Fase</strong> y la <strong>Transformada de Hilbert</strong>.</p>
+
+        <h3>5.1. El Método de Hilbert (Generación de Señal Analítica)</h3>
+        <p>En el mundo real, las señales son reales ($V(t)$). En el espectro, esto implica simetría: frecuencias positivas y negativas. Para eliminar una banda lateral matemáticamente, necesitamos convertir nuestra señal real en una <strong>Señal Analítica</strong> (Compleja).</p>
+        <p>La Transformada de Hilbert genera una copia de la señal original desfasada exactamente $90^\circ$ ($\frac{\pi}{2}$ radianes).</p>
+        <ul>
+            <li><strong>Señal Real ($I$):</strong> $m(t)$</li>
+            <li><strong>Señal Imaginaria ($Q$):</strong> $\hat{m}(t)$ (Transformada de Hilbert)</li>
+        </ul>
+        <div class="math-block">$$z(t) = m(t) + j\cdot\hat{m}(t)$$</div>
+        <p>Al combinar estas dos, eliminamos las frecuencias negativas del espectro, lo que es el primer paso para la SSB.</p>
+        <a href="./ssb-1.html" class="btn-link">➡️ Simulación 1: Visualizar el Desfase de Hilbert</a>
+
+        <h3>5.2. El Modulador de Fase (Hartley)</h3>
+        <p>Una vez tenemos la señal compleja de audio ($I$ y $Q$) y una portadora compleja, podemos seleccionar matemáticamente qué banda queremos transmitir (Superior o Inferior) sin usar filtros, simplemente sumando o restando fases.</p>
+        <p><strong>Matemática del Modulador:</strong></p>
+        <ul>
+            <li><strong>USB (Upper Sideband):</strong> $\text{Re}\{ (m(t) + j\hat{m}(t)) \cdot e^{j\omega_c t} \} = m(t)\cos(\omega_c t) - \hat{m}(t)\sin(\omega_c t)$</li>
+            <li><strong>LSB (Lower Sideband):</strong> $m(t)\cos(\omega_c t) + \hat{m}(t)\sin(\omega_c t)$</li>
+        </ul>
+        <p><strong>Explicación del Diagrama:</strong></p>
+        <ol class="list-decimal pl-6">
+            <li><strong>Audio Source:</strong> Genera la voz.</li>
+            <li><strong>Hilbert:</strong> Crea los componentes $I$ (Real) y $Q$ (Imaginaría/Desfasada).</li>
+            <li><strong>Multiply:</strong> Multiplica $I_{audio} \times I_{portadora}$ y $Q_{audio} \times Q_{portadora}$.</li>
+            <li><strong>Add/Sub:</strong>
+                <ul>
+                    <li>Si <strong>Restamos</strong> los resultados $\rightarrow$ Las frecuencias bajas se cancelan $\rightarrow$ Queda <strong>USB</strong>.</li>
+                    <li>Si <strong>Sumamos</strong> los resultados $\rightarrow$ Las frecuencias altas se cancelan $\rightarrow$ Queda <strong>LSB</strong>.</li>
+                </ul>
+            </li>
+        </ol>
+        <a href="./ssb-2.html" class="btn-link">➡️ Simulación 2: Modulador SSB Interactivo</a>
+
+        <h3>5.3. Sistema Completo: Entradas Reales y Archivos IQ</h3>
+        <p>Este diagrama muestra cómo preparar un transmisor SSB real. En GNU Radio, podemos alternar entre un tono puro, un micrófono (tu voz en tiempo real) o un archivo <code>.wav</code>.</p>
+        <p><strong>Puntos Críticos del Flowgraph:</strong></p>
+        <ul>
+            <li><strong>Selector de Entrada:</strong> En GNU Radio, si conectas múltiples fuentes a un punto, <strong>solo una debe estar habilitada</strong> a la vez (Block Enabled/Disabled), o las muestras se mezclarán causando errores de reloj.</li>
+            <li><strong>Generación de Archivo IQ (<code>.dat</code>):</strong> Para transmitir esta señal con un hardware SDR (como HackRF o PlutoSDR), necesitamos un archivo complejo.
+                <ul>
+                    <li>La salida del modulador SSB es <strong>Flotante (Real)</strong>.</li>
+                    <li>Para guardarla en formato IQ, usamos un bloque <code>Float to Complex</code>. Conectamos la señal SSB a la entrada <strong>Real</strong> y una fuente constante de <strong>0</strong> a la entrada <strong>Imaginaria</strong>.</li>
+                    <li>Esto crea un archivo compatible con transmisores SDR.</li>
+                </ul>
+            </li>
+        </ul>
+        <a href="./ssb-3.html" class="btn-link">➡️ Simulación 3: Sistema Transmisor con Micrófono/Wav</a>
+
+        <h3>5.4. Recepción 1: "Frequency Xlating FIR Filter"</h3>
+        <p>Al recibir señales de radio con un SDR, a menudo capturamos un ancho de banda grande (ej. 256 kHz) a una frecuencia muy alta. Sin embargo, nuestra tarjeta de audio solo soporta 48 kHz.</p>
+        <p>El bloque <strong>Frequency Xlating FIR Filter</strong> es una "navaja suiza" que realiza tres operaciones costosas en un solo paso eficiente:</p>
+        <ol class="list-decimal pl-6">
+            <li><strong>Traslación de Frecuencia (Mixing):</strong> Multiplica la señal de entrada por $e^{-j\omega_{c}t}$ para mover la estación de radio que queremos escuchar (que está en, por ejemplo, 51.5 kHz) al centro (0 Hz).</li>
+            <li><strong>Filtrado Pasa Bajos (FIR):</strong> Aplica un filtro digital para eliminar todas las demás estaciones y el ruido, dejando solo el ancho de banda de la voz (3 kHz).</li>
+            <li><strong>Decimación:</strong> Reduce la tasa de muestreo. Si entramos con 256k y decimamos por 8:
+                <div class="math-block">$$256.000 / 8 = 32.000 \text{ Hz}$$</div>
+                Ahora la señal es compatible con el sistema de audio.
+            </li>
+        </ol>
+        <a href="./ssb-4.html" class="btn-link">➡️ Simulación 4: Sintonizador y Decimador</a>
+
+        <h3>5.5. Recepción 2: Demodulador Weaver</h3>
+        <p>El método Weaver es una técnica avanzada para demodular SSB que evita algunos problemas de fase del método de Hartley.</p>
+        <p><strong>El Problema:</strong> Una señal SSB de voz no tiene portadora y su energía no está centrada en 0 Hz, sino desplazada (la voz va de 300 Hz a 3000 Hz). Si la bajamos directamente a 0 Hz, la parte baja del espectro se solapará con la negativa.</p>
+        <p><strong>La Solución Weaver:</strong></p>
+        <ol class="list-decimal pl-6">
+            <li><strong>Conversión I/Q:</strong> Separamos la señal en ramas Real e Imaginaria.</li>
+            <li><strong>Osciladores Locales (1.5 kHz):</strong> En lugar de bajar la señal exactamente a 0 Hz, utilizamos osciladores seno y coseno a <strong>1.5 kHz</strong> (la mitad del ancho de banda de la voz: $3kHz / 2$).</li>
+            <li><strong>Resultado:</strong> Esto centra perfectamente el espectro de voz en la banda base de audio, permitiendo escucharla con claridad.</li>
+        </ol>
+        <a href="./ssb-5.html" class="btn-link">➡️ Simulación 5: Demodulador Weaver Completo</a>
+    </section>
+
+    <section class="module-section">
+        <h2>6. Modulación Digital BPSK (Binary Phase Shift Keying)</h2>
+        <p>Hasta ahora hemos trabajado con audio analógico. Ahora entramos en el mundo digital. La <strong>BPSK</strong> es la forma más robusta de modulación digital: transmitimos bits (0 y 1) invirtiendo la fase de la portadora $180^\circ$.</p>
+        <div class="math-block">$$s(t) = d(t) \cdot A_c \cos(2\pi f_c t)$$</div>
+        <p>Donde $d(t)$ vale $+1$ para el bit '1' y $-1$ para el bit '0'.</p>
+
+        <h3>6.1. Transmisor Básico: El problema de la Onda Cuadrada</h3>
+        <p>En el mundo digital teórico, los bits son cuadrados perfectos (cambian de 0 a 1 instantáneamente). Sin embargo, en el mundo físico (radiofrecuencia), <strong>transmitir ondas cuadradas es ilegal e ineficiente</strong>.</p>
+        <h4>¿Por qué necesitamos Interpolar y Filtrar?</h4>
+        <ol class="list-decimal pl-6">
+            <li><strong>Ancho de Banda Infinito:</strong> Matemáticamente (Fourier), un cambio brusco de voltaje (una esquina de un cuadrado) requiere infinitas frecuencias armónicas. Esto ensuciaría todo el espectro radioeléctrico.</li>
+            <li><strong>Interpolación:</strong> Una fuente de datos digital genera un punto matemático cada cierto tiempo. Para convertirlo en una "onda" que ocupe tiempo, debemos repetir ese punto muchas veces (interpolar).</li>
+            <li><strong>Filtrado (Pulse Shaping):</strong> Debemos "lijar" las esquinas del pulso cuadrado para hacerlo suave. Esto limita el ancho de banda y concentra la energía donde la necesitamos.</li>
+        </ol>
+        <h4>Desglose de Bloques</h4>
+        <table>
+            <thead>
+                <tr>
+                    <th>Bloque</th>
+                    <th>Función Técnica</th>
+                    <th>¿Por qué lo usamos?</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>GLFSR Source</strong></td>
+                    <td>Generador de bits pseudo-aleatorios.</td>
+                    <td>Simula un flujo de datos (internet, texto, imagen) para pruebas.</td>
+                </tr>
+                <tr>
+                    <td><strong>Interpolating FIR Filter</strong></td>
+                    <td>Repetición de muestras.</td>
+                    <td>Convierte 1 bit en 100 muestras iguales. Transforma un punto en un "ladrillo" cuadrado.</td>
+                </tr>
+                <tr>
+                    <td><strong>Low Pass Filter</strong></td>
+                    <td>Suavizado.</td>
+                    <td>Elimina las frecuencias altas de las esquinas del cuadrado. Convierte el "ladrillo" en una "montaña" suave.</td>
+                </tr>
+                <tr>
+                    <td><strong>Multiply</strong></td>
+                    <td>Modulador BPSK.</td>
+                    <td>Sube la señal banda base a la frecuencia portadora ($f_c$).</td>
+                </tr>
+            </tbody>
+        </table>
+        <a href="./bpsk-1.html" class="btn-link">Ver Simulación: Transmisor BPSK Básico</a>
+
+        <h3>6.2. Sincronización y Retardo (Delay)</h3>
+        <p>Al procesar señales digitales, los filtros (como el Low Pass Filter) introducen un retraso matemático inevitable llamado <strong>Retardo de Grupo</strong>. La señal "entra" al filtro y tarda unos milisegundos en "salir" procesada.</p>
+        <p>Para comparar la señal original (bits cuadrados) con la señal filtrada (onda suave) en una gráfica superpuesta, necesitamos <strong>retrasar artificialmente</strong> la señal original para que ambas se alineen en el tiempo.</p>
+        <ul>
+            <li><strong>Bloque Delay:</strong> No modifica la señal, solo la retiene en memoria $N$ muestras para compensar la latencia del filtro paralelo.</li>
+        </ul>
+        <a href="./bpsk-2.html" class="btn-link">➡️ Simulación: Compensación de Retardo</a>
+
+        <h3>6.3. El Estándar Profesional: Root Raised Cosine (RRC)</h3>
+        <p>En sistemas de telecomunicaciones reales (4G, Wi-Fi, Satélite), no usamos un filtro Pasa Bajos genérico. Usamos el filtro <strong>Coseno Alzado (Raised Cosine)</strong>.</p>
+        <p>Este filtro está diseñado matemáticamente para cumplir el <strong>Criterio de Nyquist para ISI nula</strong>. Esto significa que, aunque la onda oscile, garantiza que cruzará por cero exactamente en el momento en que ocurre el siguiente símbolo, evitando que un bit interfiera con el siguiente (Inter-Symbol Interference).</p>
+        <p>En la práctica, dividimos este filtro en dos partes iguales:</p>
+        <ol class="list-decimal pl-6">
+            <li><strong>Root Raised Cosine (TX):</strong> En el transmisor.</li>
+            <li><strong>Root Raised Cosine (RX):</strong> En el receptor.</li>
+        </ol>
+        <div class="math-block">$$RRC_{TX} \cdot RRC_{RX} = \text{Raised Cosine Completo}$$</div>
+        <p>Esto maximiza la relación señal-ruido (SNR) al funcionar como un <em>filtro adaptado</em>.</p>
+        <a href="./bpsk-3.html" class="btn-link">➡️ Simulación: Filtro RRC</a>
+
+        <h3>6.4. Receptor y Diagrama de Ojo</h3>
+        <p>Para recuperar los datos, realizamos el proceso inverso: bajamos la señal de frecuencia y analizamos su calidad.</p>
+        <h4>Conceptos del Receptor</h4>
+        <ul>
+            <li><strong>Demodulación (-Freq):</strong> Para bajar una señal que está en $+16\text{kHz}$ a banda base ($0\text{Hz}$), la multiplicamos por una señal compleja de $-16\text{kHz}$.</li>
+            <li><strong>Diagrama de Ojo (Eye Diagram):</strong> Es la herramienta fundamental para analizar la calidad de una señal digital. Superpone todos los bits recibidos en una sola ventana de tiempo.
+                <ul>
+                    <li><strong>Ojo Abierto:</strong> Las líneas se separan claramente arriba y abajo. Indica buena calidad y fácil distinción entre '1' y '0'.</li>
+                    <li><strong>Ojo Cerrado:</strong> Las líneas se cruzan en el centro debido al ruido o mala sincronización. Indica errores de bit (BER).</li>
+                </ul>
+            </li>
+        </ul>
+        <h4>Desglose de Bloques</h4>
+        <table>
+            <thead>
+                <tr>
+                    <th>Bloque</th>
+                    <th>Función Técnica</th>
+                    <th>¿Por qué lo usamos?</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Signal Source (-16k)</strong></td>
+                    <td>Oscilador Local inverso.</td>
+                    <td>Genera la frecuencia negativa para cancelar la portadora y bajar a banda base.</td>
+                </tr>
+                <tr>
+                    <td><strong>Complex to Real</strong></td>
+                    <td>Descarte de Q.</td>
+                    <td>En BPSK, la información solo vive en el eje Real (I). Descartamos la parte Imaginaria (Q) que solo contiene ruido.</td>
+                </tr>
+                <tr>
+                    <td><strong>QT GUI Eye Diagram</strong></td>
+                    <td>Osciloscopio de persistencia.</td>
+                    <td>Visualiza la "apertura" del ojo para evaluar si la comunicación es fiable frente al ruido.</td>
+                </tr>
+            </tbody>
+        </table>
+        <a href="./bpsk-4.html" class="btn-link">Ver Simulación: Receptor y Diagrama de Ojo</a>
+    </section>
+
+    <section class="module-section">
+        <h2>7. FSK (Frequency Shift Keying) con VCO</h2>
+        <p>En este módulo construiremos un módem completo para <strong>RTTY (Radioteletipo)</strong>. A diferencia del BPSK donde cambiábamos la fase, aquí cambiaremos la frecuencia.</p>
+        <ul>
+            <li><strong>Bit 0 (Space):</strong> Se transmite a <strong>2125 Hz</strong>.</li>
+            <li><strong>Bit 1 (Mark):</strong> Se transmite a <strong>2295 Hz</strong>.</li>
+        </ul>
+        <p>El reto es: ¿Cómo obligamos a un oscilador a generar estas frecuencias exactas usando solo matemáticas?</p>
+
+        <h3>7.1. Preparación de Datos: De Bits a Flotantes</h3>
+        <p>Antes de modular, necesitamos acondicionar los datos. Un ordenador genera bits instantáneos, pero una señal de radio necesita "tiempo" para existir.</p>
+        <h4>Desglose de Bloques</h4>
+        <ul>
+            <li><strong>Random Source & Unpack:</strong> Generamos bytes (0-255) y los descomponemos en bits individuales (0 o 1).</li>
+            <li><strong>Repeat (Interpolación):</strong> Este es clave. Un bit matemático no tiene duración. Para transmitirlo a una velocidad de audio (Sample Rate 48kHz), debemos repetirlo muchas veces.
+                <ul>
+                    <li>Si queremos una velocidad lenta (típica de RTTY), repetimos cada bit <strong>1056 veces</strong>.</li>
+                    <li>Esto crea un "pulso" largo que dura lo suficiente para ser escuchado.</li>
+                </ul>
+            </li>
+            <li><strong>UChar to Float:</strong> Convertimos los datos de tipo Byte (morado) a Float (naranja) porque el VCO funciona con números decimales (Voltaje).</li>
+        </ul>
+        <a href="./fsk-1.html" class="btn-link">➡️ Simulación 1: Tubería de Datos</a>
+
+        <h3>7.2. El Corazón Matemático: VCO y Voltajes</h3>
+        <p>Aquí es donde ocurre la magia. Usamos un <strong>VCO (Voltage Controlled Oscillator)</strong>. Este bloque no recibe una frecuencia, recibe un <strong>Voltaje</strong> y lo convierte en frecuencia.</p>
+        <h4>La Constante del VCO (K)</h4>
+        <p>En GNU Radio, la sensibilidad del VCO se define en radianes. En tu diagrama es <strong>15.708k</strong>. Para saber cuántos Hercios genera por cada Voltio, aplicamos:</p>
+        <div class="math-block">$$K_{VCO} (Hz/V) = \frac{\text{Sensitivity}}{2\pi} = \frac{15708}{6.283} \approx 2500 \text{ Hz/Volt}$$</div>
+        <p>Esto significa: <strong>Por cada 1 Voltio que entra, el VCO emite 2500 Hz.</strong></p>
+        
+        <h4>Cálculo de los Voltajes de Control</h4>
+        <p>Necesitamos generar 2125 Hz y 2295 Hz. Usando la constante $K = 2500$:</p>
+        <ol class="list-decimal pl-6">
+            <li><strong>Voltaje para "Space" (0):</strong>
+                <div class="math-block">$$V_{space} = \frac{2125 \text{ Hz}}{2500 \text{ Hz/V}} = \mathbf{0.850 \text{ V}}$$</div>
+                Este es nuestro "suelo" o base.
+            </li>
+            <li><strong>Voltaje para "Mark" (1):</strong>
+                <div class="math-block">$$V_{mark} = \frac{2295 \text{ Hz}}{2500 \text{ Hz/V}} = \mathbf{0.918 \text{ V}}$$</div>
+            </li>
+            <li><strong>La Diferencia (Delta):</strong>
+                <div class="math-block">$$0.918 \text{ V} - 0.850 \text{ V} = \mathbf{0.068 \text{ V}}$$</div>
+            </li>
+        </ol>
+        <h4>Implementación en Bloques</h4>
+        <ul>
+            <li><strong>Add Const (0.850):</strong> Sumamos 0.850 a todo. Si entra un '0', sale 0.850V (2125 Hz).</li>
+            <li><strong>Multiply Const (0.068):</strong> Si entra un '1', lo multiplicamos por 0.068. Al sumarle el 0.850 base, obtenemos $0.068 + 0.850 = 0.918V$ (2295 Hz).</li>
+        </ul>
+        <a href="./fsk-2.html" class="btn-link">➡️ Simulación 2: Matemáticas VCO interactivas</a>
+
+        <h3>7.3. Receptor 1: Traslación de Frecuencia (Xlating)</h3>
+        <p>En el receptor, queremos aislar estas dos frecuencias. Para facilitar la demodulación, centramos la señal en 0 Hz (Banda Base).</p>
+        <ul>
+            <li><strong>Frecuencia Central:</strong> El punto medio entre Mark y Space es:
+                <div class="math-block">$$\frac{2125 + 2295}{2} = \mathbf{2210 \text{ Hz (2.21k)}}$$</div>
+            </li>
+            <li><strong>Xlating FIR Filter:</strong> Este bloque sintoniza en 2.21k y lo mueve a 0 Hz.
+                <ul>
+                    <li>El <strong>Space (2125)</strong> se mueve a $-85 \text{ Hz}$.</li>
+                    <li>El <strong>Mark (2295)</strong> se mueve a $+85 \text{ Hz}$.</li>
+                </ul>
+            </li>
+        </ul>
+        <a href="./fsk-3.html" class="btn-link">➡️ Simulación 3: Filtro Traductor</a>
+
+        <h3>7.4. Receptor 2: Demodulación por Cuadratura</h3>
+        <p>Una vez centrada la señal, usamos un <strong>Quadrature Demod</strong>. Este bloque calcula la velocidad de cambio de fase (frecuencia instantánea).</p>
+        <ul>
+            <li><strong>Gain (Ganancia):</strong> La salida cruda del demodulador es pequeña. Para que nos de exactamente "1.0" o "-1.0" y poder decidir si es un bit 1 o 0, aplicamos una ganancia basada en la desviación de frecuencia ($Deviation = 85 \text{ Hz}$).
+                <div class="math-block">$$Gain = \frac{SampRate}{2\pi \cdot Deviation}$$</div>
+            </li>
+            <li><strong>Binary Slicer:</strong> Toma la decisión final. Si la señal es positiva ($>0$), saca un byte <strong>1</strong>. Si es negativa ($<0$), saca un byte <strong>0</strong>.</li>
+            <li><strong>Verificación:</strong> Usamos un bloque <strong>Subtract</strong> restando la señal recibida de la original (retardada por el bloque <strong>Delay</strong> para compensar el tiempo de viaje). Si la línea resultante es plana en 0, la transmisión es perfecta.</li>
+        </ul>
+        <a href="./fsk-4.html" class="btn-link">➡️ Simulación 4: Demodulador y Verificación de Errores</a>
+    </section>
+
+    <section class="module-section">
+        <h2>8. Conceptos Avanzados y Herramientas Extra</h2>
+        <p>Esta sección aborda conceptos transversales esenciales para el diseño de flujos en GNU Radio, desde la manipulación correcta de tipos de datos hasta la creación de bloques personalizados y el manejo de audio.</p>
+
+        <h3>8.1. Matemáticas vs. Conversión de Tipos</h3>
+        <p>Un error común es confundir bloques que <strong>transforman</strong> valores con bloques que <strong>desempaquetan</strong> tipos de datos.</p>
+        <ul>
+            <li><strong>Transcendental (Math):</strong> Son bloques que aplican funciones trigonométricas o matemáticas complejas. Transforman el valor numérico.
+                <ul>
+                    <li>Ejemplo: Entrada <code>0</code> $\rightarrow$ Bloque Cos $\rightarrow$ Salida <code>1.0</code>.</li>
+                    <li>Analogía: Una licuadora que transforma los ingredientes en algo nuevo.</li>
+                </ul>
+            </li>
+            <li><strong>Complex to Float (Type Conversion):</strong> No realiza cálculos matemáticos complejos, simplemente separa las partes de un número.
+                <ul>
+                    <li>Ejemplo: Entrada <code>3 + 4j</code> $\rightarrow$ Salida A <code>3</code>, Salida B <code>4</code>.</li>
+                    <li>Analogía: Separar un sándwich en pan y jamón.</li>
+                </ul>
+            </li>
+        </ul>
+        <a href="./Extra1.html" class="btn-link">➡️ Simulación: Diferencia Visual Interactiva</a>
+
+        <h3>8.2. Cadena de Transmisión Digital: De Bits a Símbolos</h3>
+        <p>Para transmitir un archivo digital por radio, no podemos enviar "bytes" directamente. Necesitamos una cadena de traducción específica.</p>
+        <ol class="list-decimal pl-6">
+            <li><strong>File Source:</strong> Entrega Bytes (paquetes de 8 bits, ej: <code>00001101</code>).</li>
+            <li><strong>Packed to Unpacked:</strong> Rompe el byte en trozos más pequeños (chunks). Para BPSK, necesitamos bits individuales.
+                <ul>
+                    <li>Entrada: <code>13</code> (Decimal)</li>
+                    <li>Salida: <code>0, 0, 0, 0, 1, 1, 0, 1</code>.</li>
+                </ul>
+            </li>
+            <li><strong>Chunks to Symbols:</strong> Es el cartógrafo. Toma esos bits y los coloca en un mapa de coordenadas complejas (Constelación).
+                <ul>
+                    <li>Entrada: <code>0</code> $\rightarrow$ Salida: <code>-1</code> (Izquierda).</li>
+                    <li>Entrada: <code>1</code> $\rightarrow$ Salida: <code>+1</code> (Derecha).</li>
+                </ul>
+            </li>
+        </ol>
+        <a href="./Extra2.html" class="btn-link">➡️ Simulación: Visualizador de Mapeo de Bits</a>
+
+        <h3>8.3. Bloques Jerárquicos y Diagrama de Ojo</h3>
+        <p>A medida que los diagramas crecen, se vuelven ilegibles. GNU Radio permite crear <strong>Bloques Jerárquicos</strong>: diagramas completos que se comportan como un solo bloque dentro de otro flujo ("Bloques dentro de bloques").</p>
+        <p>Además, este módulo explica el funcionamiento interno del <strong>Diagrama de Ojo</strong>. No es magia; es una técnica de visualización que consiste en trocear la señal recibida y superponer todos los trazos.</p>
+        <ul>
+            <li><strong>Ojo Abierto:</strong> Señal limpia, el receptor distingue claramente entre 0 y 1.</li>
+            <li><strong>Ojo Cerrado:</strong> Ruido o Jitter excesivo, la señal se cruza en el centro provocando errores de decisión.</li>
+        </ul>
+        <a href="./Extra3.html" class="btn-link">➡️ Simulación: Construyendo un Diagrama de Ojo</a>
+
+        <h3>8.4. Audio y Archivos: WAV vs DAT</h3>
+        <p>El manejo de archivos y audio tiene trampas comunes relacionadas con la velocidad de muestreo.</p>
+        <ul>
+            <li><strong>Archivos .WAV:</strong> Tienen una "cabecera" con información. El bloque sabe automáticamente a qué velocidad reproducirlos.</li>
+            <li><strong>Archivos .DAT (Raw Float):</strong> Son solo listas de números sin metadatos. El ordenador intentará leerlos tan rápido como permita la CPU.
+                <ul>
+                    <li><strong>¡Importante!</strong> Si usas un archivo <code>.dat</code> en una simulación sin hardware de radio, debes usar un bloque <strong>Throttle</strong>. Este bloque frena el flujo de datos para igualar el <code>Sample Rate</code> deseado, evitando que la simulación se ejecute instantáneamente y cuelgue la interfaz.</li>
+                </ul>
+            </li>
+        </ul>
+        <a href="./extra4.html" class="btn-link">➡️ Simulación: Laboratorio de Audio AM</a>
+    </section>
+
+</div>
+
+</body>
+</html>
