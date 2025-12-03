@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="es" class="theme-cream">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modulación Digital: De Bits a Símbolos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root.theme-cream {
+            --color-bg-primary: #fdfaf4;
+            --color-bg-secondary: #ffffff;
+            --color-text-primary: #3a3a3a;
+            --color-text-secondary: #505050; 
+            --color-border: #e0e0e0;
+            --color-accent: #10b981;
+            --color-accent-light: #ecfdf5;
+            --color-block-header: #d1fae5;
+            --color-block-border: #059669;
+            
+            --port-byte: #d946ef;
+            --port-complex: #3b82f6;
+        }
+        
+        :root.theme-dark {
+            --color-bg-primary: #1e1e1e;
+            --color-bg-secondary: #2d2d2d;
+            --color-text-primary: #e0e0e0;
+            --color-text-secondary: #cccccc;
+            --color-border: #444444;
+            --color-accent: #34d399;
+            --color-accent-light: #064e3b;
+            --color-block-header: #065f46;
+            --color-block-border: #34d399;
+            --port-byte: #e879f9;
+            --port-complex: #60a5fa;
+        }
+        
+        body { font-family: 'Inter', sans-serif; }
+        .font-mono { font-family: 'Fira Code', monospace; }
+
+        .bg-primary { background-color: var(--color-bg-primary); }
+        .bg-secondary { background-color: var(--color-bg-secondary); }
+        .text-primary { color: var(--color-text-primary); }
+        .text-secondary { color: var(--color-text-secondary); }
+        .border-custom { border-color: var(--color-border); }
+        .text-accent { color: var(--color-accent); }
+        
+        .gr-canvas-container {
+            position: relative; width: 100%; height: 280px; 
+            background-color: var(--color-bg-primary); 
+            border: 1px solid var(--color-border);
+            border-radius: 8px; overflow: hidden;
+            user-select: none;
+            background-image: radial-gradient(var(--color-border) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        
+        .gr-block {
+            position: absolute; 
+            background-color: #f3f4f6;
+            border: 2px solid; 
+            border-radius: 4px; 
+            box-shadow: 3px 3px 0px rgba(0,0,0,0.1); 
+            z-index: 10; 
+            font-size: 11px; color: black;
+            display: flex; flex-direction: column;
+            min-width: 130px;
+        }
+        
+        .gr-header {
+            padding: 4px 8px; font-weight: 800; text-align: center;
+            border-bottom: 1px solid #9ca3af;
+            white-space: nowrap;
+        }
+        
+        .gr-body { padding: 6px; font-family: 'Fira Code', monospace; font-size: 10px; line-height: 1.4; }
+        .gr-param { margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .gr-key { font-weight: 600; color: #374151; }
+
+        .block-source { border-color: #9ca3af; }
+        .block-source .gr-header { background-color: #e5e7eb; }
+
+        .block-proc { border-color: #ef4444; }
+        .block-proc-gray { border-color: #4b5563; }
+        .block-proc-gray .gr-header { background-color: #e5e7eb; color: #b91c1c; }
+
+        .gr-port { 
+            width: 12px; height: 12px; position: absolute; 
+            border: 1px solid #1f2937; cursor: pointer; 
+            transition: transform 0.2s;
+        }
+        .gr-port:hover { transform: scale(1.2) translateY(-50%); }
+        
+        .type-byte { background-color: var(--port-byte); }
+        .type-complex { background-color: var(--port-complex); }
+        
+        .port-out { right: -7px; top: 50%; transform: translateY(-50%); }
+        .port-in { left: -7px; top: 50%; transform: translateY(-50%); }
+
+        .gr-wires svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+        .gr-wire { fill: none; stroke-width: 2.5; opacity: 0.8; stroke-linecap: round; }
+        
+        .info-card { @apply bg-secondary p-4 rounded-xl border border-custom mb-4 shadow-sm; }
+    </style>
+</head>
+<body class="bg-primary text-primary transition-colors duration-300">
+
+    <main class="min-h-screen p-4 md:p-8 max-w-[1200px] mx-auto flex flex-col gap-8">
+        
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-custom pb-6 gap-4">
+            <div class="flex items-center gap-5">
+                <div class="w-14 h-14 bg-emerald-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg text-2xl">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-3xl font-extrabold text-primary tracking-tight">De Bits a Símbolos</h1>
+                    <p class="text-sm text-secondary font-medium mt-1">Cómo GNU Radio convierte archivos en ondas de radio</p>
+                </div>
+            </div>
+            <button id="theme-btn" class="px-4 py-2 rounded-lg bg-secondary border border-custom text-xs font-bold shadow-sm hover:opacity-80 text-primary">
+                Cambiar Tema
+            </button>
+        </header>
+
+        <section class="w-full">
+            <div class="bg-secondary rounded-2xl shadow-xl border border-custom overflow-hidden">
+                <div class="px-6 py-3 bg-primary border-b border-custom flex justify-between items-center">
+                    <h3 class="font-bold text-sm text-accent">Diagrama</h3>
+                    <span class="text-[10px] uppercase tracking-wider text-secondary font-bold">Transmitter Chain</span>
+                </div>
+                
+                <div class="gr-canvas-container" id="canvas-area">
+                    <div class="gr-wires">
+                        <svg width="1200" height="280">
+                            <path d="M 190 120 L 290 120" class="gr-wire" style="stroke: #d946ef;" />
+                            
+                            <path d="M 460 120 L 580 120" class="gr-wire" style="stroke: #d946ef;" />
+                            
+                            <path d="M 750 140 L 850 140" class="gr-wire" style="stroke: #3b82f6;" />
+                        </svg>
+                    </div>
+
+                    <div class="gr-block block-source" style="top: 80px; left: 40px; width: 150px;">
+                        <div class="gr-header">File Source</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key">File:</span> .../datos.dat</div>
+                            <div class="gr-param"><span class="gr-key">Repeat:</span> Yes</div>
+                        </div>
+                        <div class="gr-port port-out type-byte"></div>
+                    </div>
+
+                    <div class="gr-block block-proc-gray" style="top: 80px; left: 290px; width: 170px;">
+                        <div class="gr-header text-red-700">Packed to Unpacked</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key text-red-600">Bits per Chunk:</span> 1</div>
+                            <div class="gr-param"><span class="gr-key">Endianness:</span> MSB</div>
+                        </div>
+                        <div class="gr-port port-in type-byte"></div>
+                        <div class="gr-port port-out type-byte"></div>
+                    </div>
+
+                    <div class="gr-block block-proc-gray" style="top: 100px; left: 580px; width: 170px;">
+                        <div class="gr-header text-red-700">Chunks to Symbols</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key text-red-600">Symbol Table:</span> mod...</div>
+                            <div class="gr-param"><span class="gr-key">Dimension:</span> 1</div>
+                        </div>
+                        <div class="gr-port port-in type-byte" style="top: 30%"></div>
+                        <div class="gr-port port-out type-complex"></div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            <div class="flex flex-col gap-4">
+                <h2 class="text-xl font-bold text-primary flex items-center gap-2">
+                    <span class="bg-emerald-100 text-emerald-700 w-8 h-8 flex items-center justify-center rounded-full text-sm">1</span>
+                    ¿Por qué necesitamos "Unpack"?
+                </h2>
+                
+                <div class="info-card border-l-4 border-emerald-500" style="background-color: var(--color-accent-light);">
+                    <h4 class="font-bold text-emerald-800 mb-2">Problema: El ordenador es muy eficiente</h4>
+                    <p class="text-sm text-primary mb-3 text-justify">
+                        Los ordenadores guardan los datos en <strong>Bytes</strong> (paquetes de 8 bits). Es la forma más compacta de guardar archivos.
+                        <br><br>
+                        Pero la mayoría de modulaciones de radio digital (como BPSK o QPSK) no transmiten 8 bits de golpe. Transmiten <strong>1 bit</strong> o <strong>2 bits</strong> a la vez.
+                    </p>
+                </div>
+
+                <div class="bg-secondary p-5 rounded-xl shadow-sm border border-custom">
+                    <h4 class="font-bold text-secondary text-sm mb-4 uppercase tracking-wide">Analogía: La Tableta de Chocolate 🍫</h4>
+                    
+                    <div class="flex items-start gap-4 mb-6 relative">
+                        <div class="z-10 w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center text-xl border-2 border-purple-400">📦</div>
+                        <div class="flex-1">
+                            <p class="text-xs font-bold text-purple-600 mb-1">FILE SOURCE (Byte)</p>
+                            <p class="text-sm text-primary">Te da una <strong>tableta entera</strong> (8 onzas juntas). No puedes comértela de un bocado.</p>
+                        </div>
+                        <div class="absolute left-5 top-10 w-0.5 h-8 bg-gray-300 -z-0"></div>
+                    </div>
+
+                    <div class="flex items-start gap-4 mb-6 relative">
+                        <div class="z-10 w-10 h-10 bg-red-100 rounded-full flex items-center justify-center text-xl border-2 border-red-400">🔨</div>
+                        <div class="flex-1">
+                            <p class="text-xs font-bold text-red-600 mb-1">PACKED TO UNPACKED</p>
+                            <p class="text-sm text-primary">
+                                Rompe la tableta y separa las onzas individuales. 
+                                <br>
+                                <span class="text-xs text-secondary bg-gray-100 px-1 rounded">Bits per Chunk: 1</span> = Separa de 1 en 1 onza.
+                            </p>
+                        </div>
+                        <div class="absolute left-5 top-10 w-0.5 h-8 bg-gray-300 -z-0"></div>
+                    </div>
+
+                    <div class="flex items-start gap-4">
+                        <div class="z-10 w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-xl border-2 border-blue-400">📡</div>
+                        <div class="flex-1">
+                            <p class="text-xs font-bold text-blue-600 mb-1">CHUNKS TO SYMBOLS</p>
+                            <p class="text-sm text-primary">Toma cada onza y la envía por la antena (la convierte en una coordenada compleja).</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="flex flex-col gap-4">
+                <h2 class="text-xl font-bold text-primary flex items-center gap-2">
+                    <span class="bg-orange-100 text-orange-700 w-8 h-8 flex items-center justify-center rounded-full text-sm">2</span>
+                    Traducción: De Número a Mapa
+                </h2>
+                
+                <div class="bg-secondary rounded-xl shadow-lg border border-custom p-4">
+                    <h4 class="font-bold text-sm text-primary mb-4 text-center">Simulación del Bloque "Chunks to Symbols"</h4>
+                    
+                    <div class="flex flex-col items-center gap-6">
+                        
+                        <div class="w-full flex justify-center items-center gap-2 overflow-hidden h-12 bg-gray-100 rounded-lg relative border border-gray-200">
+                            <div class="absolute left-2 text-[10px] font-bold text-gray-400">ENTRADA (Bits)</div>
+                            <div id="bit-stream" class="flex gap-2 font-mono text-lg font-bold text-purple-600">
+                            </div>
+                        </div>
+
+                        <div class="text-2xl text-gray-400">⬇️</div>
+
+                        <div class="relative w-48 h-48 bg-gray-900 rounded-full border-4 border-gray-700 shadow-inner flex items-center justify-center">
+                            <div class="absolute w-full h-[1px] bg-gray-600"></div>
+                            <div class="absolute h-full w-[1px] bg-gray-600"></div>
+                            
+                            <div id="point-0" class="absolute w-4 h-4 bg-gray-600 rounded-full left-4 transition-all duration-200 shadow-[0_0_10px_rgba(255,255,255,0.2)]"></div>
+                            <div id="point-1" class="absolute w-4 h-4 bg-gray-600 rounded-full right-4 transition-all duration-200 shadow-[0_0_10px_rgba(255,255,255,0.2)]"></div>
+
+                            <div class="absolute bottom-10 text-[10px] text-gray-400">Mapa Complejo (I/Q)</div>
+                        </div>
+
+                        <div class="text-center">
+                            <p class="text-xs text-secondary italic" id="status-text">Esperando datos...</p>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="info-card border-l-4 border-blue-500 mt-2">
+                    <h4 class="font-bold text-blue-800 mb-1 text-xs">El "Diccionario" (Symbol Table)</h4>
+                    <p class="text-xs text-primary leading-relaxed">
+                        El bloque <strong>Chunks to Symbols</strong> usa una tabla para traducir.
+                        <br>Ejemplo BPSK:
+                        <br>• Si entra <strong>0</strong> ➜ Salida: <strong>-1</strong> (Punto Izquierda)
+                        <br>• Si entra <strong>1</strong> ➜ Salida: <strong>+1</strong> (Punto Derecha)
+                    </p>
+                </div>
+
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const themeBtn = document.getElementById('theme-btn');
+            const themes = ['cream', 'dark'];
+            let curTheme = 0;
+            themeBtn.onclick = () => {
+                curTheme = (curTheme + 1) % themes.length;
+                document.documentElement.className = `theme-${themes[curTheme]}`;
+            };
+
+            const bitStreamEl = document.getElementById('bit-stream');
+            const point0 = document.getElementById('point-0');
+            const point1 = document.getElementById('point-1');
+            const statusText = document.getElementById('status-text');
+
+            let bits = [0, 1, 1, 0, 1, 0, 0, 1];
+            let step = 0;
+
+            setInterval(() => {
+                const currentBit = bits[step % bits.length];
+                
+                let streamHTML = '';
+                for(let i=0; i<5; i++) {
+                    let b = bits[(step + i) % bits.length];
+                    let opacity = 1 - (i * 0.2);
+                    let scale = i === 0 ? 1.2 : 1;
+                    let color = i === 0 ? 'text-red-500' : 'text-purple-400';
+                    streamHTML += `<span style="opacity:${opacity}; transform:scale(${scale});" class="${color}">${b}</span>`;
+                }
+                bitStreamEl.innerHTML = streamHTML;
+
+                if(currentBit === 0) {
+                    point0.style.backgroundColor = '#10b981';
+                    point0.style.boxShadow = '0 0 15px #10b981';
+                    point0.style.transform = 'scale(1.5)';
+                    
+                    point1.style.backgroundColor = '#4b5563';
+                    point1.style.boxShadow = 'none';
+                    point1.style.transform = 'scale(1)';
+                    
+                    statusText.innerHTML = `Entrada: <strong>0</strong> ➜ Coordenada: <strong>-1 + 0j</strong>`;
+                } else {
+                    point1.style.backgroundColor = '#10b981';
+                    point1.style.boxShadow = '0 0 15px #10b981';
+                    point1.style.transform = 'scale(1.5)';
+                    
+                    point0.style.backgroundColor = '#4b5563';
+                    point0.style.boxShadow = 'none';
+                    point0.style.transform = 'scale(1)';
+                    
+                    statusText.innerHTML = `Entrada: <strong>1</strong> ➜ Coordenada: <strong>+1 + 0j</strong>`;
+                }
+
+                step++;
+            }, 800);
+        });
+    </script>
+</body>
+</html>

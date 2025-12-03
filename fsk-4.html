@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="es" class="theme-cream">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FSK Parte 3: Demodulación y Verificación</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root.theme-cream {
+            --color-bg-primary: #fdfaf4;
+            --color-bg-secondary: #ffffff;
+            --color-text-primary: #3a3a3a;
+            --color-text-secondary: #505050; 
+            --color-border: #e0e0e0;
+            --color-accent: #10b981; 
+            --color-accent-light: #ecfdf5;
+            
+            --port-float: #f97316;
+            --port-byte: #d946ef;
+            --port-complex: #3b82f6;
+        }
+        
+        body { font-family: 'Inter', sans-serif; }
+        .font-mono { font-family: 'Fira Code', monospace; }
+
+        .bg-primary { background-color: var(--color-bg-primary); }
+        .bg-secondary { background-color: var(--color-bg-secondary); }
+        .text-primary { color: var(--color-text-primary); }
+        .text-secondary { color: var(--color-text-secondary); }
+        .border-custom { border-color: var(--color-border); }
+        
+        .gr-canvas-container {
+            position: relative; width: 100%; height: 320px; 
+            background-color: var(--color-bg-primary); 
+            border: 1px solid var(--color-border);
+            border-radius: 8px; overflow: hidden;
+            user-select: none;
+            background-image: radial-gradient(var(--color-border) 1px, transparent 1px);
+            background-size: 20px 20px;
+            overflow-x: auto;
+        }
+        
+        .gr-block {
+            position: absolute; 
+            background-color: #f3f4f6;
+            border: 2px solid; 
+            border-radius: 4px; 
+            box-shadow: 3px 3px 0px rgba(0,0,0,0.1); 
+            z-index: 10; 
+            font-size: 10px; color: black;
+            display: flex; flex-direction: column;
+            min-width: 110px;
+        }
+        
+        .gr-header {
+            padding: 3px 6px; font-weight: 800; text-align: center;
+            border-bottom: 1px solid #9ca3af;
+            white-space: nowrap;
+            font-size: 10px;
+        }
+        
+        .gr-body { padding: 4px; font-family: 'Fira Code', monospace; font-size: 9px; line-height: 1.4; }
+        .gr-param { margin-bottom: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .gr-key { font-weight: 600; color: #374151; }
+
+        .block-demod { border-color: #0369a1; }
+        .block-demod .gr-header { background-color: #bae6fd; color: #0c4a6e; }
+        
+        .block-logic { border-color: #be185d; }
+        .block-logic .gr-header { background-color: #fbcfe8; color: #831843; }
+
+        .block-gray { border-color: #4b5563; }
+        .block-gray .gr-header { background-color: #d1d5db; }
+        
+        .block-check { border-color: #15803d; }
+        .block-check .gr-header { background-color: #bbf7d0; color: #14532d; }
+
+        .gr-port { 
+            width: 10px; height: 10px; position: absolute; 
+            border: 1px solid #1f2937; cursor: pointer; 
+        }
+        .type-complex { background-color: var(--port-complex); }
+        .type-float { background-color: var(--port-float); }
+        .type-byte { background-color: var(--port-byte); }
+        
+        .port-out { right: -6px; top: 50%; transform: translateY(-50%); }
+        .port-in { left: -6px; top: 50%; transform: translateY(-50%); }
+
+        .gr-wires svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+        .gr-wire { fill: none; stroke: #333; stroke-width: 2.5; opacity: 0.8; stroke-linecap: round; }
+        
+        .info-card { @apply bg-secondary p-4 rounded-xl border border-custom mb-4 shadow-sm; }
+    </style>
+</head>
+<body class="bg-primary text-primary transition-colors duration-300">
+
+    <main class="min-h-screen p-4 md:p-8 max-w-[1200px] mx-auto flex flex-col gap-8">
+        
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-custom pb-6 gap-4">
+            <div class="flex items-center gap-5">
+                <div class="w-14 h-14 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg text-2xl">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-3xl font-extrabold text-primary tracking-tight">Parte 3: Demodulación y Verificación</h1>
+                    <p class="text-sm text-secondary font-medium mt-1">Recuperando los datos y comprobando errores</p>
+                </div>
+            </div>
+        </header>
+
+        <section class="w-full">
+            <div class="bg-secondary rounded-2xl shadow-xl border border-custom overflow-hidden">
+                <div class="px-6 py-3 bg-primary border-b border-custom flex justify-between items-center">
+                    <h3 class="font-bold text-sm text-indigo-600">Tu Flujo (Image 640ca3 - Final)</h3>
+                    <span class="text-[10px] uppercase tracking-wider text-secondary font-bold">Rx & Verify Chain</span>
+                </div>
+                
+                <div class="gr-canvas-container overflow-x-auto" id="canvas-area">
+                    <div class="gr-wires" style="width: 1200px;">
+                        <svg width="1200" height="320">
+                            <path d="M 140 100 L 220 100" class="gr-wire" style="stroke: #3b82f6;" />
+                            <path d="M 360 100 L 440 100" class="gr-wire" style="stroke: #f97316;" />
+                            <path d="M 540 100 L 620 100" class="gr-wire" style="stroke: #d946ef;" />
+                            <path d="M 740 100 L 820 100" class="gr-wire" style="stroke: #f97316;" />
+                            
+                            <path d="M 820 100 C 850 100, 850 180, 940 180" class="gr-wire" style="stroke: #f97316;" /> 
+                            
+                            <path d="M 140 250 L 620 250" class="gr-wire" style="stroke: #f97316;" />
+                            <path d="M 720 250 L 940 200" class="gr-wire" style="stroke: #f97316;" />
+
+                            <path d="M 1040 190 L 1100 190" class="gr-wire" style="stroke: #f97316;" />
+                        </svg>
+                    </div>
+
+                    <div class="gr-block block-demod" style="top: 70px; left: 220px; width: 140px;">
+                        <div class="gr-header">Quadrature Demod</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key">Gain:</span> (Fórmula)</div>
+                        </div>
+                        <div class="gr-port port-in type-complex"></div>
+                        <div class="gr-port port-out type-float"></div>
+                    </div>
+
+                    <div class="gr-block block-logic" style="top: 80px; left: 440px;">
+                        <div class="gr-header">Binary Slicer</div>
+                        <div class="gr-port port-in type-float"></div>
+                        <div class="gr-port port-out type-byte"></div>
+                    </div>
+
+                    <div class="gr-block block-gray" style="top: 80px; left: 620px;">
+                        <div class="gr-header">UChar To Float</div>
+                        <div class="gr-port port-in type-byte"></div>
+                        <div class="gr-port port-out type-float"></div>
+                    </div>
+
+                    <div class="gr-block block-gray" style="top: 230px; left: 20px;">
+                        <div class="gr-header">Virtual Source</div>
+                        <div class="gr-body"><span class="gr-key">ID:</span> xmt_data</div>
+                        <div class="gr-port port-out type-float"></div>
+                    </div>
+
+                    <div class="gr-block block-gray" style="top: 230px; left: 620px;">
+                        <div class="gr-header">Delay</div>
+                        <div class="gr-body"><span class="gr-key">Delay:</span> 145</div>
+                        <div class="gr-port port-in type-float"></div>
+                        <div class="gr-port port-out type-float"></div>
+                    </div>
+
+                    <div class="gr-block block-check" style="top: 160px; left: 940px;">
+                        <div class="gr-header">Subtract</div>
+                        <div class="gr-port port-in type-float" style="top: 25%"></div>
+                        <div class="gr-port port-in type-float" style="top: 75%"></div>
+                        <div class="gr-port port-out type-float"></div>
+                    </div>
+
+                    <div class="gr-block block-gray" style="top: 160px; left: 1100px;">
+                        <div class="gr-header">QT GUI Time Sink</div>
+                        <div class="gr-port port-in type-float"></div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            <div class="flex flex-col gap-4">
+                <h2 class="text-xl font-bold text-primary flex items-center gap-2">
+                    <span class="bg-indigo-100 text-indigo-700 w-8 h-8 flex items-center justify-center rounded-full text-sm">1</span>
+                    La Fórmula del Demodulador
+                </h2>
+                
+                <div class="info-card border-l-4 border-l-indigo-500">
+                    <h4 class="font-bold text-sm text-indigo-700 mb-2">Quadrature Demod Gain</h4>
+                    <p class="text-xs text-secondary mb-3 text-justify">
+                        Este bloque mide qué tan rápido gira la fase de la señal.
+                        <br>Giro rápido = Alta frecuencia (1). Giro lento = Baja frecuencia (0).
+                        <br>La salida "cruda" está en radianes/muestra. Para que salga un número bonito (como 1.0) necesitamos ajustarla con la ganancia.
+                    </p>
+                    
+                    <div class="bg-gray-100 p-3 rounded text-center border border-gray-300 my-2">
+                        <p class="font-mono text-xs font-bold text-gray-800">
+                            Gain = samp_rate / (2 * π * fsk_deviation)
+                        </p>
+                    </div>
+
+                    <div class="space-y-2 text-xs text-secondary">
+                        <p><strong>samp_rate:</strong> Velocidad de muestreo (ej. 48k). Cuanto más rápido medimos, más pequeños parecen los pasos.</p>
+                        <p><strong>2 * π:</strong> Conversión de círculo completo a radianes.</p>
+                        <p><strong>fsk_deviation:</strong> Es el ancho de la "carretera". Si nuestro 1 está desviado 170Hz del centro, queremos que cuando llegue esa frecuencia, la salida sea exactamente <strong>1.0</strong>.</p>
+                    </div>
+                </div>
+
+                <div class="info-card border-l-4 border-l-pink-500">
+                    <h4 class="font-bold text-sm text-pink-700 mb-2">Binary Slicer</h4>
+                    <p class="text-xs text-secondary mb-1">
+                        Es el bloque más simple pero crucial. Convierte la señal analógica ruidosa en decisión digital.
+                    </p>
+                    <ul class="list-disc pl-4 text-xs text-secondary">
+                        <li>Si entra <strong>&gt; 0</strong> (ej: 0.8, 1.2, 0.01) ➜ Sale <strong>1</strong></li>
+                        <li>Si entra <strong>≤ 0</strong> (ej: -0.5, -1.0) ➜ Sale <strong>0</strong></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-4">
+                <h2 class="text-xl font-bold text-primary flex items-center gap-2">
+                    <span class="bg-green-100 text-green-700 w-8 h-8 flex items-center justify-center rounded-full text-sm">2</span>
+                    La Prueba de la Resta
+                </h2>
+                
+                <div class="bg-secondary rounded-xl shadow-lg border border-custom p-6 relative">
+                    <h4 class="font-bold text-sm text-primary mb-4 text-center">Simulación: ¿Coinciden?</h4>
+
+                    <div class="flex flex-col gap-2 font-mono text-xs">
+                        
+                        <div class="flex items-center justify-between p-2 bg-orange-50 rounded border border-orange-200">
+                            <span class="text-orange-700 font-bold">Transmitido (Original):</span>
+                            <div id="tx-bits" class="flex gap-1"></div>
+                        </div>
+
+                        <div class="flex items-center justify-between p-2 bg-indigo-50 rounded border border-indigo-200">
+                            <span class="text-indigo-700 font-bold">Recibido (Demodulado):</span>
+                            <div id="rx-bits" class="flex gap-1"></div>
+                        </div>
+
+                        <div class="flex items-center justify-between p-2 bg-gray-800 rounded text-white mt-2">
+                            <span class="font-bold text-green-400">Resta (Subtract):</span>
+                            <div id="diff-line" class="w-32 h-6 bg-black border border-gray-600 relative overflow-hidden flex items-center">
+                                <div id="flat-line" class="w-full h-[2px] bg-green-500 transition-all duration-200"></div>
+                            </div>
+                            <span id="status-text" class="text-[10px] uppercase font-bold text-green-500">PERFECTO</span>
+                        </div>
+
+                    </div>
+                    
+                    <div class="mt-4 text-xs text-justify text-secondary leading-relaxed">
+                        <p class="mb-2">
+                            <strong>¿Por qué el Delay?</strong> La señal real tardó tiempo en filtrarse, transmitirse y demodularse. La copia original es instantánea.
+                        </p>
+                        <p class="mb-2">
+                            El bloque <strong>Delay</strong> "frena" la copia original para que llegue al bloque <strong>Subtract</strong> exactamente al mismo tiempo que la señal procesada.
+                        </p>
+                        <p class="p-2 bg-green-50 border border-green-200 rounded text-green-800 font-bold text-center">
+                            Resta = Recibido - Original<br>
+                            1 - 1 = 0<br>
+                            0 - 0 = 0
+                        </p>
+                        <p class="mt-2 text-gray-500 italic text-center">
+                            Si ves una línea plana en 0, ¡Felicidades! No hay errores.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const txContainer = document.getElementById('tx-bits');
+            const rxContainer = document.getElementById('rx-bits');
+            const flatLine = document.getElementById('flat-line');
+            const statusText = document.getElementById('status-text');
+
+            const bits = [0, 1, 1, 0, 1, 0, 0, 1, 1, 0];
+            let index = 0;
+
+            setInterval(() => {
+                const bit = bits[index % bits.length];
+                
+                const spanTx = document.createElement('span');
+                spanTx.className = "w-4 h-4 flex items-center justify-center bg-orange-200 text-orange-800 rounded text-[9px] font-bold";
+                spanTx.innerText = bit;
+                
+                const spanRx = document.createElement('span');
+                const isError = Math.random() > 0.98;
+                const rxBit = isError ? (bit ? 0 : 1) : bit;
+                
+                spanRx.className = `w-4 h-4 flex items-center justify-center ${isError ? 'bg-red-500 text-white animate-pulse' : 'bg-indigo-200 text-indigo-800'} rounded text-[9px] font-bold`;
+                spanRx.innerText = rxBit;
+
+                txContainer.appendChild(spanTx);
+                rxContainer.appendChild(spanRx);
+
+                if(txContainer.children.length > 8) {
+                    txContainer.removeChild(txContainer.firstChild);
+                    rxContainer.removeChild(rxContainer.firstChild);
+                }
+
+                if(isError) {
+                    flatLine.style.backgroundColor = '#ef4444';
+                    flatLine.style.transform = 'translateY(-10px) rotate(5deg)';
+                    statusText.innerText = "ERROR DETECTADO";
+                    statusText.className = "text-[10px] uppercase font-bold text-red-500";
+                } else {
+                    flatLine.style.backgroundColor = '#22c55e';
+                    flatLine.style.transform = 'translateY(0)';
+                    statusText.innerText = "PERFECTO";
+                    statusText.className = "text-[10px] uppercase font-bold text-green-500";
+                }
+
+                index++;
+            }, 600);
+        });
+    </script>
+</body>
+</html>

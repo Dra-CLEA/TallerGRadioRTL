@@ -1,0 +1,926 @@
+
+<!DOCTYPE html>
+<html lang="es" class="theme-cream">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modulación AM</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+    <style>
+        :root.theme-cream {
+            --color-bg-primary: #fdfaf4;
+            --color-bg-secondary: #ffffff;
+            --color-text-primary: #3a3a3a;
+            --color-text-secondary: #707070;
+            --color-border: #e0e0e0;
+            --color-accent: #ff6b6b;
+            --color-chart-grid: rgba(0, 0, 0, 0.1);
+            --color-chart-line: #ff6b6b;
+        }
+        :root.theme-dark {
+            --color-bg-primary: #1e1e1e;
+            --color-bg-secondary: #2d2d2d;
+            --color-text-primary: #e0e0e0;
+            --color-text-secondary: #aaaaaa;
+            --color-border: #444444;
+            --color-accent: #ff8787;
+            --color-chart-grid: rgba(255, 255, 255, 0.2);
+            --color-chart-line: #ff8787;
+        }
+        :root.theme-gray {
+            --color-bg-primary: #f5f5f5;
+            --color-bg-secondary: #ffffff;
+            --color-text-primary: #333333;
+            --color-text-secondary: #555555;
+            --color-border: #dddddd;
+            --color-accent: #555555;
+            --color-chart-grid: rgba(0, 0, 0, 0.1);
+            --color-chart-line: #333333;
+        }
+
+        .bg-primary { background-color: var(--color-bg-primary); }
+        .bg-secondary { background-color: var(--color-bg-secondary); }
+        .text-primary { color: var(--color-text-primary); }
+        .text-secondary { color: var(--color-text-secondary); }
+        .border-custom { border-color: var(--color-border); }
+        .text-accent { color: var(--color-accent); }
+        .bg-accent { background-color: var(--color-accent); }
+        .hover-accent:hover { background-color: var(--color-accent); color: white; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .practice-content { display: none; }
+        .practice-content.active { display: block; animation: fadeIn 0.5s ease-out; }
+
+        html, body, .bg-primary, .bg-secondary, .text-primary, .text-secondary, input {
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+        }
+
+        .gnuradio-dialog {
+            background-color: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            overflow: hidden;
+            width: 100%;
+            margin-bottom: 1.5rem;
+            font-family: sans-serif;
+        }
+        .gnuradio-header {
+            background-color: var(--color-bg-primary);
+            padding: 8px 12px;
+            font-weight: bold;
+            font-size: 0.95rem;
+            border-bottom: 1px solid var(--color-border);
+            color: var(--color-text-primary);
+        }
+        .gnuradio-tabs {
+            display: flex;
+            background-color: var(--color-bg-primary);
+            border-bottom: 1px solid var(--color-border);
+        }
+        .gnuradio-tab {
+            padding: 8px 16px;
+            font-size: 0.85rem;
+            cursor: default;
+            color: var(--color-text-secondary);
+            border-right: 1px solid var(--color-border);
+        }
+        .gnuradio-tab.active {
+            color: var(--color-text-primary);
+            font-weight: 600;
+            background-color: var(--color-bg-secondary);
+            border-bottom: 2px solid var(--color-bg-secondary);
+            margin-bottom: -1px;
+        }
+        .gnuradio-body { padding: 16px; font-family: monospace; font-size: 0.9rem; }
+        .gnuradio-field {
+            display: grid; grid-template-columns: 120px 1fr;
+            align-items: center; margin-bottom: 10px;
+        }
+        .gnuradio-label { color: var(--color-text-secondary); font-weight: 600; padding-right: 10px; }
+        .gnuradio-value-static {
+            padding: 6px 10px; background-color: var(--color-bg-primary);
+            border: 1px solid var(--color-border); border-radius: 4px;
+            color: var(--color-text-primary); display: block;
+        }
+        .gnuradio-value-input {
+            padding: 6px 10px; background-color: var(--color-bg-secondary);
+            border: 1px solid var(--color-border); border-radius: 4px;
+            color: var(--color-text-primary); width: 100%; font-family: monospace;
+        }
+        .gnuradio-value-input:focus {
+            outline: none; border-color: var(--color-accent);
+            box-shadow: 0 0 0 2px rgba(var(--color-accent), 0.2);
+        }
+        .value-error {
+            color: #ef4444; font-size: 0.8rem; margin-top: 4px;
+            grid-column: 2; display: none; font-weight: bold;
+        }
+
+        .flowgraph-container {
+            display: flex; align-items: center; justify-content: center; padding: 20px;
+            background-color: var(--color-bg-primary); border: 1px solid var(--color-border);
+            border-radius: 8px; margin-bottom: 20px; overflow-x: auto;
+        }
+        .flow-block {
+            background-color: #e0e7ff; border: 2px solid #373737; border-radius: 4px; padding: 8px;
+            width: 120px; position: relative; font-family: sans-serif; font-size: 0.75rem; color: #000; flex-shrink: 0;
+        }
+        .theme-dark .flow-block { background-color: #3f3f46; color: #fff; border-color: #71717a; }
+        .flow-title { font-weight: bold; margin-bottom: 4px; text-align: center; border-bottom: 1px solid #999; padding-bottom: 2px; }
+        .flow-param { display: block; font-size: 0.7rem; margin-bottom: 2px; }
+        
+        .connector {
+            width: 12px; height: 12px; background-color: #d97706; position: absolute; top: 50%; transform: translateY(-50%); border: 1px solid #000; z-index: 10;
+        }
+        .connector.out { right: -6px; }
+        .connector.in { left: -6px; }
+        .flow-arrow { flex-grow: 0; width: 40px; height: 2px; background-color: #373737; position: relative; margin: 0 2px; }
+        .theme-dark .flow-arrow { background-color: #a1a1aa; }
+
+        .gr-canvas {
+            position: relative; width: 100%; min-width: 800px; height: 480px;
+            background-color: white; border: 1px solid #ccc; overflow: hidden;
+            font-family: sans-serif; user-select: none;
+        }
+        .theme-dark .gr-canvas { background-color: #2d2d2d; border-color: #444; }
+        
+        .gr-block {
+            position: absolute; background-color: #e6e6ff; border: 2px solid #333; border-radius: 2px;
+            padding: 4px; width: 140px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1); z-index: 5;
+        }
+        .theme-dark .gr-block { background-color: #e0e7ff; color: black; border-color: #777; } 
+        .gr-title { font-size: 11px; font-weight: bold; text-align: center; border-bottom: 1px solid #999; margin-bottom: 4px; padding-bottom: 2px; color: #000; }
+        .gr-param { font-size: 10px; color: #000; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .gr-port {
+            width: 12px; height: 10px; background-color: #ff9900; border: 1px solid #000;
+            position: absolute; top: 50%; transform: translateY(-50%);
+        }
+        .gr-port.in { left: -6px; } .gr-port.out { right: -6px; }
+        
+        .gr-lines { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+        .gr-line { fill: none; stroke: black; stroke-width: 2; }
+
+        .aliasing-warning {
+            display: none; background-color: #fef2f2; border: 1px solid #ef4444;
+            border-radius: 8px; padding: 16px; margin-top: 20px; color: #991b1b;
+        }
+        .aliasing-warning h4 { color: #ef4444; font-weight: bold; margin-bottom: 8px; display: flex; align-items: center; }
+        
+        .sampling-visualization {
+            border: 1px solid var(--color-border); min-height: 200px; display: flex;
+            flex-direction: column; justify-content: center; align-items: center;
+        }
+        .sine-wave-path { fill: none; stroke: var(--color-accent); stroke-width: 2; stroke-opacity: 0.5; }
+        .sample-dot {
+            fill: var(--color-text-primary); r: 0; opacity: 0;
+            animation: sample-pop 2s infinite cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .sample-dot:nth-of-type(1) { animation-delay: 0s; }
+        .sample-dot:nth-of-type(2) { animation-delay: 0.4s; }
+        .sample-dot:nth-of-type(3) { animation-delay: 0.8s; }
+        .sample-dot:nth-of-type(4) { animation-delay: 1.2s; }
+        .sample-dot:nth-of-type(5) { animation-delay: 1.6s; }
+        @keyframes sample-pop { 0% { r: 0; opacity: 0; } 30% { r: 4; opacity: 1; } 50% { r: 4; opacity: 1; } 100% { r: 0; opacity: 0; } }
+        
+        .practice-slide { animation: fadeIn 0.3s ease-out; }
+        
+        .nav-btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            padding: 0.5rem 1.25rem; border-radius: 0.375rem; font-weight: 600;
+            transition: all 0.2s; background-color: var(--color-accent); color: white !important;
+            border: none; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .nav-btn:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 4px 6px rgba(0,0,0,0.15); }
+    </style>
+</head>
+<body class="bg-primary text-primary font-sans">
+
+    <main id="main-content" class="min-h-screen transition-all duration-300 p-6 md:p-10">
+        <header class="flex justify-between items-center mb-8">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-accent rounded-lg flex items-center justify-center text-white font-bold">G</div>
+                <h2 class="text-2xl font-bold text-accent">GNURadio</h2>
+            </div>
+            <h1 id="practice-title" class="text-xl md:text-3xl font-bold text-accent text-center px-4 flex-grow">Modulación AM</h1>
+            <div class="flex space-x-2">
+                <button id="theme-toggle-btn" class="p-2 rounded-full shadow-md bg-secondary text-primary border border-custom hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 text-orange-500"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" /></svg>
+                    <svg id="icon-moon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 hidden text-blue-400"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" /></svg>
+                    <svg id="icon-gray" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6 hidden text-gray-500"><path stroke-linecap="round" stroke-linejoin="round" d="M4.098 19.902a3.75 3.75 0 0 0 5.304 0l1.414-1.414M4.098 19.902a3.75 3.75 0 0 0 0-5.304l3.535-3.536m-3.535 8.84 1.414-1.414m0 0a.75.75 0 0 1 1.06 0l2.829 2.828a.75.75 0 0 1 0 1.06l-1.414 1.414m-3.536-3.536a.75.75 0 0 1 0-1.06l2.828-2.829a.75.75 0 0 1 1.06 0l3.536 3.536m-3.536 3.536-1.414 1.414m0 0 3.536 3.535a3.75 3.75 0 0 0 5.304 0L21.902 12m-2.828-2.828a3.75 3.75 0 0 0 0-5.304L17.66 2.098a3.75 3.75 0 0 0-5.304 0L9.536 4.92m8.124 8.124a.75.75 0 0 1-1.06 0L13.77 10.22a.75.75 0 0 1 0-1.06l2.829-2.828a.75.75 0 0 1 1.06 0l1.414 1.414m-3.536 3.536a.75.75 0 0 1 1.06 0l2.828 2.829a.75.75 0 0 1 0 1.06l-1.414 1.414m0 0-3.536-3.535m0 0-.001-.001" /></svg>
+                </button>
+            </div>
+        </header>
+
+        <div id="practice-container" class="bg-secondary p-6 rounded-lg shadow-inner border border-custom">
+            
+            <div id="practice-am-mod" class="practice-content active">
+                
+                <div id="am-slide-1" class="practice-slide">
+                    <h2 class="text-2xl font-semibold mb-6 text-accent">Concepto Clave: El "Sample Rate"</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div class="space-y-6">
+                            <p class="text-secondary">En GNURadio, todo el diagrama debe operar a una <strong>misma velocidad</strong>: la <strong>Frecuencia de Muestreo</strong>.</p>
+                            
+                            <div class="relative mb-4">
+                                <div class="gr-block" style="position: relative; width: 140px; height: 60px;">
+                                    <div class="gr-title">Variable</div>
+                                    <div class="gr-param">ID: samp_rate</div>
+                                    <div class="gr-param">Value: <span id="slide1-block-val">200k</span></div>
+                                </div>
+                            </div>
+
+                            <div class="gnuradio-dialog">
+                                <div class="gnuradio-header">Properties: Variable</div>
+                                <div class="gnuradio-tabs"><div class="gnuradio-tab active">General</div><div class="gnuradio-tab">Advanced</div></div>
+                                <div class="gnuradio-body">
+                                    <div class="gnuradio-field"><label class="gnuradio-label">ID</label><div class="gnuradio-value-static">samp_rate</div></div>
+                                    <div class="gnuradio-field">
+                                        <label class="gnuradio-label">Value (kHz)</label>
+                                        <input id="samp-rate-input-slide1" type="number" value="200" class="gnuradio-value-input">
+                                        <div id="samp-rate-error-slide1" class="value-error">Debe ser positivo</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="font-semibold text-primary bg-primary p-3 rounded-md border border-custom">
+                                <strong class="text-accent">El Teorema de Nyquist</strong><br>
+                                <p class="text-secondary font-normal mt-1">El <code>samp_rate</code> debe ser <strong>al menos el doble</strong> de la frecuencia más alta.</p>
+                            </div>
+                            
+                            <div id="aliasing-warning-slide1" class="aliasing-warning hidden">
+                                <div class="flex items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                    <h4>¡Alerta Aliasing!</h4>
+                                </div>
+                                <p class="text-sm mt-1">Muestreo insuficiente (&lt; 40kHz). La señal se distorsionará.</p>
+                            </div>
+                        </div>
+                        <div class="sampling-visualization bg-primary p-4 rounded-lg border border-custom">
+                            <h3 class="text-lg font-semibold text-center mb-4 text-primary">Visualización del Muestreo</h3>
+                            <svg viewBox="0 0 100 22" class="w-full">
+                                <path d="M 0 11 Q 12.5 1, 25 11 T 50 11 T 75 11 T 100 11" class="sine-wave-path" />
+                                <circle cx="0"  cy="11" r="2" class="sample-dot"></circle><circle cx="25" cy="11" r="2" class="sample-dot"></circle><circle cx="50" cy="11" r="2" class="sample-dot"></circle><circle cx="75" cy="11" r="2" class="sample-dot"></circle><circle cx="100" cy="11" r="2" class="sample-dot"></circle>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="flex justify-end mt-8"><button id="am-slide-1-next" class="nav-btn">Siguiente: Multiplicación <span aria-hidden="true">&rarr;</span></button></div>
+                </div>
+
+                <div id="am-slide-2" class="practice-slide" style="display: none;">
+                    <h2 class="text-2xl font-semibold mb-6 text-accent">Paso 1: La Multiplicación AM</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div class="space-y-6">
+                            <p class="text-secondary">"Modular" AM es variar la amplitud de una portadora rápida usando una señal lenta.</p>
+                            <div class="gnuradio-dialog">
+                                <div class="gnuradio-header">Properties: Signal Source (Info)</div>
+                                <div class="gnuradio-tabs"><div class="gnuradio-tab active">General</div></div>
+                                <div class="gnuradio-body">
+                                    <div class="gnuradio-field"><label class="gnuradio-label">Samp Rate</label><input id="samp-rate-input-slide2-sig" type="number" class="gnuradio-value-input" value="200"></div>
+                                    <div class="gnuradio-field"><label class="gnuradio-label">Freq (kHz)</label><input id="signal-freq" type="number" value="4" class="gnuradio-value-input"></div>
+                                    <div class="gnuradio-field"><label class="gnuradio-label">Ampl (m)</label><input id="signal-amp" type="number" value="0.5" step="0.1" class="gnuradio-value-input"><div id="signal-amp-error" class="value-error">¡Sobremodulación!</div></div>
+                                </div>
+                            </div>
+                            <div class="gnuradio-dialog">
+                                <div class="gnuradio-header">Properties: Signal Source (Port)</div>
+                                <div class="gnuradio-tabs"><div class="gnuradio-tab active">General</div></div>
+                                <div class="gnuradio-body">
+                                    <div class="gnuradio-field"><label class="gnuradio-label">Samp Rate</label><input id="samp-rate-input-slide2-car" type="number" class="gnuradio-value-input" value="200"><div id="samp-rate-error-slide2" class="value-error">¡Aliasing!</div></div>
+                                    <div class="gnuradio-field"><label class="gnuradio-label">Freq (kHz)</label><input id="carrier-freq" type="number" value="20" class="gnuradio-value-input"><div id="carrier-freq-error" class="value-error">Error Freq</div></div>
+                                    <div class="gnuradio-field"><label class="gnuradio-label">Ampl (Ac)</label><input id="carrier-amp" type="number" value="1" step="0.1" class="gnuradio-value-input"></div>
+                                </div>
+                            </div>
+                            <p class="text-secondary font-semibold mt-4 p-3 bg-primary border border-custom rounded text-sm">
+                                Nyquist: <strong id="nyquist-limit-text" class="text-accent">48</strong> kHz. Prueba <strong><span id="suggested-aliasing-rate">30</span> kHz</strong> para ver Aliasing.
+                            </p>
+                        </div>
+                        <div class="space-y-6">
+                            <div><h3 class="text-lg font-semibold text-center mb-2 text-primary">Dominio del Tiempo</h3><div class="bg-primary p-2 rounded-lg border border-custom"><canvas id="timeDomainChart"></canvas></div></div>
+                            <div><h3 class="text-lg font-semibold text-center mb-2 text-primary">Dominio de la Frecuencia</h3><div class="bg-primary p-2 rounded-lg border border-custom"><canvas id="freqDomainChart"></canvas></div><p id="freq-domain-caption" class="text-secondary text-center text-sm mt-2">...</p></div>
+                            <div id="aliasing-explanation" class="aliasing-warning"><h4>¡Alerta Aliasing!</h4><p class="text-sm">Muestreo insuficiente (<span id="current-sr-text"></span>k < <span id="nyquist-calc-text"></span>k).</p></div>
+                        </div>
+                    </div>
+                    <div class="flex justify-between mt-8">
+                        <button id="am-slide-2-prev" class="nav-btn"><span aria-hidden="true">&larr;</span> Anterior</button>
+                        <button id="am-slide-2-next" class="nav-btn">Siguiente: Normalización <span aria-hidden="true">&rarr;</span></button>
+                    </div>
+                </div>
+
+                <div id="am-slide-3" class="practice-slide" style="display: none;">
+                    <h2 class="text-2xl font-semibold mb-6 text-accent">Paso 2: Preparar la Señal (Normalización)</h2>
+                    
+                    <div class="flowgraph-container">
+                         <div class="flow-block">
+                            <div class="flow-title">Signal Source</div>
+                            <span class="flow-param">Freq: <span id="flow-freq-val">4k</span></span>
+                            <span class="flow-param">Amp: 1</span>
+                            <div class="connector out"></div>
+                         </div>
+                         <div class="flow-arrow"></div>
+                         <div class="flow-block">
+                            <div class="flow-title">Multiply Const</div>
+                            <span class="flow-param">Constant: <span id="flow-ka-val">1</span></span>
+                            <div class="connector in"></div><div class="connector out"></div>
+                         </div>
+                         <div class="flow-arrow"></div>
+                         <div class="flow-block">
+                            <div class="flow-title">Add Const</div>
+                            <span class="flow-param">Constant: 1</span>
+                            <div class="connector in"></div><div class="connector out"></div>
+                         </div>
+                         <div class="flow-block" style="margin-left: 20px; border-style: dashed;">
+                             <div class="flow-title">Variable</div>
+                             <span class="flow-param">ID: ka</span>
+                             <span class="flow-param">Val: <span id="flow-ka-var-val">1</span></span>
+                         </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div class="space-y-6">
+                            <p class="text-secondary">Antes de mezclar, multiplicamos el mensaje por <strong>ka</strong> y le sumamos <strong>1</strong>.<br>Normalmente se normaliza de esta forma.</p>
+                            <div class="gnuradio-dialog">
+                                <div class="gnuradio-header">Properties: Signal Source</div>
+                                <div class="gnuradio-body">
+                                    <div class="gnuradio-field"><label class="gnuradio-label">Freq (kHz)</label><input id="s3-sig-freq" type="number" value="4" class="gnuradio-value-input"></div>
+                                </div>
+                            </div>
+                            <div class="gnuradio-dialog">
+                                <div class="gnuradio-header">Properties: Variable (ka)</div>
+                                <div class="gnuradio-body">
+                                    <div class="gnuradio-field"><label class="gnuradio-label">Value (ka)</label><input id="s3-ka-val" type="number" value="0.5" step="0.1" class="gnuradio-value-input"></div>
+                                    
+                                    <div id="s3-overmod-warning" class="bg-red-50 border border-red-400 rounded-md p-3 mt-2 hidden">
+                                        <div class="flex items-center text-red-600 font-bold mb-1">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                            ¡SOBREMODULACIÓN! (ka > 1)
+                                        </div>
+                                        <p class="text-xs text-red-700">
+                                            La onda cruza por debajo de cero. Esto causa <strong>inversión de fase</strong> en la portadora y los receptores simples (detectores de envolvente) distorsionarán la señal.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="font-semibold text-primary bg-primary p-3 rounded-md border border-custom">
+                                <strong class="text-accent">¿Por qué sumamos 1?</strong>
+                                <br><p class="text-secondary font-normal mt-1 text-sm">Sumar "1" es como <strong>subir la marea</strong>. Levantamos toda la onda para que (casi) siempre sea positiva.</p>
+                            </div>
+                        </div>
+
+                        <div class="space-y-6">
+                            <div>
+                                <h3 class="text-lg font-semibold text-center mb-2 text-primary">Resultado: 1 + ka * m(t)</h3>
+                                <div class="bg-primary p-2 rounded-lg border border-custom relative">
+                                    <canvas id="s3TimeChart"></canvas>
+                                </div>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold text-center mb-2 text-primary">Frecuencia (Espectro)</h3>
+                                <div class="bg-primary p-2 rounded-lg border border-custom"><canvas id="s3FreqChart"></canvas></div>
+                                <p id="s3-caption" class="text-secondary text-center text-sm mt-2">...</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex justify-between mt-8">
+                        <button id="am-slide-3-prev" class="nav-btn"><span aria-hidden="true">&larr;</span> Anterior</button>
+                        <button id="am-slide-3-next" class="nav-btn">Siguiente: Modulación Final <span aria-hidden="true">&rarr;</span></button>
+                    </div>
+                </div>
+
+                <div id="am-slide-4" class="practice-slide" style="display: none;">
+                    <h2 class="text-2xl font-semibold mb-6 text-accent">Paso 3: Modulación AM Completa</h2>
+                    
+                    <div class="gr-canvas mb-6 shadow-lg rounded" id="gr-canvas-container">
+                        <svg class="gr-lines">
+                            <path d="M 200 120 L 320 120" class="gr-line" />
+                            <path d="M 460 120 L 530 120" class="gr-line" />
+                            <path d="M 670 120 L 720 120 C 740 120 740 200 760 200 L 780 200" class="gr-line" />
+                            <path d="M 200 260 L 780 260" class="gr-line" />
+                            <path d="M 920 230 L 960 230" class="gr-line" />
+                        </svg>
+
+                        <div class="gr-block" style="top: 20px; left: 20px; width: 80px; height: 50px;">
+                            <div class="gr-title">Variable</div><div class="gr-param">ID: fm</div><div class="gr-param">Value: <span id="gr-val-fm">4k</span></div>
+                        </div>
+                        <div class="gr-block" style="top: 20px; left: 110px; width: 90px; height: 50px;">
+                            <div class="gr-title">Variable</div><div class="gr-param">ID: samp_rate</div><div class="gr-param">Value: <span id="gr-val-sr">200k</span></div>
+                        </div>
+                        <div class="gr-block" style="top: 20px; left: 350px; width: 80px; height: 50px;">
+                            <div class="gr-title">Variable</div><div class="gr-param">ID: ka</div><div class="gr-param">Value: <span id="gr-val-ka">1</span></div>
+                        </div>
+
+                        <div class="gr-block" style="top: 90px; left: 20px; width: 180px; height: 110px;">
+                            <div class="gr-title">Signal Source</div>
+                            <div class="gr-param">Sample Rate: <span id="gr-blk-sr1">200k</span></div>
+                            <div class="gr-param">Waveform: Cosine</div>
+                            <div class="gr-param">Frequency: <span id="gr-blk-fm">4k</span></div>
+                            <div class="gr-param">Amplitude: 1</div>
+                            <div class="gr-param">Offset: 0</div>
+                            <div class="gr-port out"></div>
+                        </div>
+                        
+                        <div class="gr-block" style="top: 100px; left: 320px; width: 140px; height: 50px;">
+                            <div class="gr-title">Multiply Const</div>
+                            <div class="gr-param">Constant: <span id="gr-blk-ka">1</span></div>
+                            <div class="gr-port in"></div><div class="gr-port out"></div>
+                        </div>
+
+                        <div class="gr-block" style="top: 100px; left: 530px; width: 140px; height: 50px;">
+                            <div class="gr-title">Add Const</div>
+                            <div class="gr-param">Constant: <span id="gr-blk-add">1</span></div>
+                            <div class="gr-port in"></div><div class="gr-port out"></div>
+                        </div>
+
+                        <div class="gr-block" style="top: 210px; left: 20px; width: 180px; height: 110px;">
+                            <div class="gr-title">Signal Source</div>
+                            <div class="gr-param">Sample Rate: <span id="gr-blk-sr2">200k</span></div>
+                            <div class="gr-param">Waveform: Cosine</div>
+                            <div class="gr-param">Frequency: <span id="gr-blk-fc">20k</span></div>
+                            <div class="gr-param">Amplitude: 1</div>
+                            <div class="gr-param">Offset: 0</div>
+                            <div class="gr-port out"></div>
+                        </div>
+
+                        <div class="gr-block" style="top: 190px; left: 780px; width: 140px; height: 80px;">
+                            <div class="gr-title">Multiply</div>
+                            <div class="gr-param">Num Inputs: 2</div>
+                            <div class="gr-port in" style="top: 25%"></div><div class="gr-port in" style="top: 75%"></div><div class="gr-port out"></div>
+                        </div>
+
+                        <div class="gr-block" style="top: 330px; left: 20px; width: 140px; height: 100px;">
+                            <div class="gr-title">QT GUI Range</div>
+                            <div class="gr-param">ID: fc</div><div class="gr-param">Default: 20k</div><div class="gr-param">Start: 0</div><div class="gr-param">Stop: 100k</div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div class="space-y-4 h-full overflow-y-auto pr-2" style="max-height: 600px;">
+                            <h3 class="text-lg font-bold text-secondary border-b border-custom pb-2">Panel de Control Total</h3>
+                            
+                            <div class="gnuradio-dialog mb-2">
+                                <div class="gnuradio-header">1. Velocidad (Sample Rate)</div>
+                                <div class="gnuradio-body py-2">
+                                    <div class="gnuradio-field"><label class="gnuradio-label">SR (Hz)</label><input id="s4-input-sr" type="number" value="200000" step="10000" class="gnuradio-value-input"></div>
+                                    <p class="text-xs text-secondary mt-1">Define la "resolución" temporal. Si es baja, ocurre Aliasing.</p>
+                                    <div id="s4-warning-alias" class="hidden text-xs bg-yellow-100 text-yellow-800 p-2 rounded border border-yellow-300 font-bold mt-2">⚠️ ALIASING: Muestreo insuficiente</div>
+                                </div>
+                            </div>
+
+                            <div class="gnuradio-dialog mb-2">
+                                <div class="gnuradio-header">2. Mensaje (Audio)</div>
+                                <div class="gnuradio-body py-2">
+                                    <div class="gnuradio-field"><label class="gnuradio-label">Freq (fm)</label><input id="s4-input-fm" type="number" value="4" class="gnuradio-value-input"></div>
+                                    <p class="text-xs text-secondary mt-1">La señal que queremos transmitir (voz/música).</p>
+                                </div>
+                            </div>
+
+                            <div class="gnuradio-dialog mb-2">
+                                <div class="gnuradio-header">3. Intensidad (ka)</div>
+                                <div class="gnuradio-body py-2">
+                                    <div class="gnuradio-field"><label class="gnuradio-label">Valor (ka)</label><input id="s4-input-ka" type="number" value="0.8" step="0.1" class="gnuradio-value-input"></div>
+                                    <p class="text-xs text-secondary mt-1">Multiplica el mensaje. Si es > 1, la onda se rompe.</p>
+                                    <div id="s4-warning-overmod" class="hidden text-xs bg-red-100 text-red-700 p-2 rounded border border-red-300 font-bold mt-2">⚠️ SOBREMODULACIÓN (ka > 1)</div>
+                                </div>
+                            </div>
+
+                            <div class="gnuradio-dialog mb-2">
+                                <div class="gnuradio-header">4. Desplazamiento (Suma)</div>
+                                <div class="gnuradio-body py-2">
+                                    <div class="gnuradio-field"><label class="gnuradio-label">Const</label><input id="s4-input-add" type="number" value="1" step="0.1" class="gnuradio-value-input"></div>
+                                    <p class="text-xs text-secondary mt-1">"Levanta" la señal (DC) para que la portadora pueda transportarla sin inversión de fase.</p>
+                                </div>
+                            </div>
+
+                            <div class="gnuradio-dialog mb-2">
+                                <div class="gnuradio-header">5. Portadora (Radio)</div>
+                                <div class="gnuradio-body py-2">
+                                    <div class="gnuradio-field"><label class="gnuradio-label">Freq (fc)</label><input id="s4-input-fc" type="number" value="20" class="gnuradio-value-input"></div>
+                                    <p class="text-xs text-secondary mt-1">El "ascensor" que sube el mensaje a alta frecuencia.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="lg:col-span-2 space-y-6">
+                            <div>
+                                <h3 class="text-lg font-semibold text-center mb-2 text-primary">Señal Modulada (Tiempo)</h3>
+                                <div class="bg-primary p-2 rounded-lg border border-custom relative"><canvas id="s4TimeChart"></canvas></div>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold text-center mb-2 text-primary">Espectro (Frecuencia Desplazada &plusmn;f<sub>c</sub>)</h3>
+                                <div class="bg-primary p-2 rounded-lg border border-custom"><canvas id="s4FreqChart"></canvas></div>
+                                <p id="s4-caption" class="text-secondary text-center text-sm mt-2">...</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex justify-start mt-8"><button id="am-slide-4-prev" class="nav-btn">&larr; Anterior</button></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            window.timeChart = null; window.freqChart = null;
+            window.s3TimeChart = null; window.s3FreqChart = null;
+            window.s4TimeChart = null; window.s4FreqChart = null;
+
+            const themeToggleBtn = document.getElementById('theme-toggle-btn');
+            const themes = ['cream', 'dark', 'gray'];
+            const icons = { 'cream': document.getElementById('icon-sun'), 'dark': document.getElementById('icon-moon'), 'gray': document.getElementById('icon-gray') };
+
+            const getCommonOptions = () => ({
+                responsive: true, maintainAspectRatio: true,
+                plugins: { legend: { display: false } },
+                animation: { duration: 0 },
+                scales: {
+                    x: { ticks: { color: '#707070' }, grid: { color: 'rgba(0,0,0,0.1)' } },
+                    y: { ticks: { color: '#707070' }, grid: { color: 'rgba(0,0,0,0.1)' } }
+                }
+            });
+
+            function updateChartColors() {
+                const style = getComputedStyle(document.documentElement);
+                const gridC = style.getPropertyValue('--color-chart-grid').trim();
+                const lineC = style.getPropertyValue('--color-chart-line').trim();
+                const textC = style.getPropertyValue('--color-text-secondary').trim();
+                const charts = [window.timeChart, window.freqChart, window.s3TimeChart, window.s3FreqChart, window.s4TimeChart, window.s4FreqChart];
+                
+                charts.forEach(chart => {
+                    if(!chart || !chart.options || !chart.options.scales) return;
+                    if(chart.options.scales.x) { chart.options.scales.x.grid.color=gridC; chart.options.scales.x.ticks.color=textC; }
+                    if(chart.options.scales.y) { chart.options.scales.y.grid.color=gridC; chart.options.scales.y.ticks.color=textC; }
+                    
+                    if(chart !== window.s3TimeChart && chart !== window.s4TimeChart && chart.data.datasets[0]) {
+                         chart.data.datasets[0].borderColor = lineC;
+                    } 
+                    chart.update();
+                });
+            }
+
+            themeToggleBtn.addEventListener('click', () => {
+                const current = localStorage.getItem('gnuradio-theme') || 'cream';
+                const next = themes[(themes.indexOf(current) + 1) % themes.length];
+                document.documentElement.className = 'theme-' + next;
+                Object.values(icons).forEach(i => i.classList.add('hidden'));
+                if(icons[next]) icons[next].classList.remove('hidden');
+                localStorage.setItem('gnuradio-theme', next);
+                setTimeout(updateChartColors, 50);
+            });
+            const initialTheme = localStorage.getItem('gnuradio-theme') || 'cream';
+            document.documentElement.className = 'theme-' + initialTheme;
+            if(icons[initialTheme]) icons[initialTheme].classList.remove('hidden');
+
+            let globalSampRate = 200000;
+            const els = {
+                sr1: document.getElementById('samp-rate-input-slide1'),
+                srError1: document.getElementById('samp-rate-error-slide1'),
+                aliasWarning1: document.getElementById('aliasing-warning-slide1'),
+                valBlock1: document.getElementById('slide1-block-val'),
+                
+                sr2sig: document.getElementById('samp-rate-input-slide2-sig'),
+                sr2car: document.getElementById('samp-rate-input-slide2-car'),
+                srError2: document.getElementById('samp-rate-error-slide2'),
+                sigFreq: document.getElementById('signal-freq'),
+                sigAmp: document.getElementById('signal-amp'),
+                sigAmpErr: document.getElementById('signal-amp-error'),
+                carFreq: document.getElementById('carrier-freq'),
+                carAmp: document.getElementById('carrier-amp'),
+                carFreqErr: document.getElementById('carrier-freq-error'),
+                caption: document.getElementById('freq-domain-caption'),
+                aliasBox: document.getElementById('aliasing-explanation'),
+                nyqTxt: document.getElementById('nyquist-limit-text'),
+                suggTxt: document.getElementById('suggested-aliasing-rate'),
+                curSrTxt: document.getElementById('current-sr-text'),
+                nyqCalcTxt: document.getElementById('nyquist-calc-text')
+            };
+            
+            document.getElementById('am-slide-1-next').addEventListener('click', () => {
+                document.getElementById('am-slide-1').style.display = 'none';
+                document.getElementById('am-slide-2').style.display = 'block';
+                if(!window.timeChart) initS2Charts(); 
+                updateS2();
+            });
+            document.getElementById('am-slide-2-prev').addEventListener('click', () => {
+                document.getElementById('am-slide-2').style.display = 'none';
+                document.getElementById('am-slide-1').style.display = 'block';
+            });
+
+            function syncSR(val) {
+                globalSampRate = val * 1000;
+                
+                if(els.sr1) els.sr1.value = val; 
+                if(els.sr2sig) els.sr2sig.value = val; 
+                if(els.sr2car) els.sr2car.value = val;
+                
+                if(els.valBlock1) els.valBlock1.textContent = val + 'k';
+
+                if(els.aliasWarning1) {
+                    if (val < 40) { 
+                        els.aliasWarning1.style.display = 'block'; 
+                        els.aliasWarning1.classList.remove('hidden');
+                    } else {
+                        els.aliasWarning1.style.display = 'none';
+                        els.aliasWarning1.classList.add('hidden');
+                    }
+                }
+                
+                if(val<=0) els.srError1.style.display='block'; else { els.srError1.style.display='none'; updateS2(); }
+            }
+
+            [els.sr1, els.sr2sig, els.sr2car].forEach(input => {
+                if(input) {
+                    input.addEventListener('input', (e) => syncSR(parseFloat(e.target.value)));
+                }
+            });
+            
+            [els.sigFreq, els.sigAmp, els.carFreq, els.carAmp].forEach(i => { if(i) i.addEventListener('input', updateS2); });
+
+            function initS2Charts() {
+                window.timeChart = new Chart(document.getElementById('timeDomainChart').getContext('2d'), {
+                    type: 'line', data: {datasets: [{borderWidth: 2, pointRadius: 0, tension: 0.2}]}, options: getCommonOptions()
+                });
+                window.freqChart = new Chart(document.getElementById('freqDomainChart').getContext('2d'), {
+                    type: 'line', data: {datasets: [{borderWidth: 2, pointRadius: 0, stepped: true}]}, options: getCommonOptions()
+                });
+                setTimeout(updateChartColors, 100);
+            }
+
+            function updateS2() {
+                if(!window.timeChart) return;
+                const fs = parseFloat(els.sigFreq.value)*1000;
+                const m = parseFloat(els.sigAmp.value);
+                const fc = parseFloat(els.carFreq.value)*1000;
+                const ac = parseFloat(els.carAmp.value);
+                const sr = globalSampRate;
+                
+                if(fc <= fs) els.carFreqErr.style.display='block'; else els.carFreqErr.style.display='none';
+                if(m > 1) els.sigAmpErr.style.display='block'; else els.sigAmpErr.style.display='none';
+                
+                const nyq = 2*(fc+fs);
+                els.nyqTxt.textContent = (nyq/1000).toFixed(1);
+                els.suggTxt.textContent = Math.floor(nyq*0.7/1000);
+
+                if(sr < nyq) {
+                    els.srError2.style.display='block'; els.aliasBox.style.display='block';
+                    els.curSrTxt.textContent=(sr/1000).toFixed(1); els.nyqCalcTxt.textContent=(nyq/1000).toFixed(1);
+                } else { els.srError2.style.display='none'; els.aliasBox.style.display='none'; }
+                
+                const pts = 200; const dur = 3/fs; const tL = []; const tD = [];
+                for(let i=0; i<pts; i++){
+                    const t=i/pts*dur; 
+                    tL.push(t.toFixed(4)); 
+                    tD.push(ac*(1+m*Math.cos(2*Math.PI*fs*t))*Math.cos(2*Math.PI*fc*t));
+                }
+                window.timeChart.data.labels=tL; window.timeChart.data.datasets[0].data=tD; window.timeChart.update();
+                
+                const fR = fc*1.5; const fStep=fR/50;
+                const fL=[]; const fD=[];
+                for(let f=-fR; f<fR; f+=fStep) {
+                    let val=0;
+                    if(Math.abs(Math.abs(f)-fc)<fStep) val=ac;
+                    else if(Math.abs(Math.abs(f)-(fc+fs))<fStep) val=ac*m/2;
+                    else if(Math.abs(Math.abs(f)-(fc-fs))<fStep) val=ac*m/2;
+                    fL.push((f/1000).toFixed(1)); fD.push(val);
+                }
+                window.freqChart.data.labels=fL; window.freqChart.data.datasets[0].data=fD; window.freqChart.update();
+                els.caption.innerHTML=`Portadora: <strong>${fc/1000}k</strong> | Bandas: <strong>±${(fc-fs)/1000}k</strong>, <strong>±${(fc+fs)/1000}k</strong>`;
+            }
+
+            const s3Els = { 
+                freq: document.getElementById('s3-sig-freq'), 
+                ka: document.getElementById('s3-ka-val'), 
+                cap: document.getElementById('s3-caption'),
+                warn: document.getElementById('s3-overmod-warning'),
+                flowFreq: document.getElementById('flow-freq-val'),
+                flowKa: document.getElementById('flow-ka-val'),
+                flowKaVar: document.getElementById('flow-ka-var-val')
+            };
+            
+            document.getElementById('am-slide-2-next').addEventListener('click', () => {
+                document.getElementById('am-slide-2').style.display = 'none';
+                document.getElementById('am-slide-3').style.display = 'block';
+                requestAnimationFrame(() => {
+                    if(!window.s3TimeChart) initS3Charts(); 
+                    else { window.s3TimeChart.resize(); window.s3FreqChart.resize(); }
+                    updateS3();
+                });
+            });
+            document.getElementById('am-slide-3-prev').addEventListener('click', () => {
+                document.getElementById('am-slide-3').style.display = 'none';
+                document.getElementById('am-slide-2').style.display = 'block';
+            });
+            [s3Els.freq, s3Els.ka].forEach(i => i.addEventListener('input', updateS3));
+
+            function initS3Charts() {
+                 window.s3TimeChart = new Chart(document.getElementById('s3TimeChart').getContext('2d'), {
+                    type: 'line', 
+                    data: {
+                        datasets: [{
+                            borderWidth: 2, 
+                            pointRadius: 0, 
+                            tension: 0.2,
+                            fill: {
+                                target: 'origin',
+                                above: 'rgba(0,0,0,0)', 
+                                below: 'rgba(239, 68, 68, 0.5)' 
+                            },
+                            segment: {
+                                borderColor: ctx => {
+                                    if (ctx.p0.parsed.y < 0 || ctx.p1.parsed.y < 0) {
+                                        return '#ef4444';
+                                    }
+                                    return undefined;
+                                }
+                            }
+                        }]
+                    }, 
+                    options: getCommonOptions()
+                });
+                window.s3FreqChart = new Chart(document.getElementById('s3FreqChart').getContext('2d'), {
+                    type: 'line', data: {datasets: [{borderWidth: 2, pointRadius: 0}]}, options: getCommonOptions()
+                });
+                setTimeout(updateChartColors, 100);
+            }
+            function updateS3() {
+                if(!window.s3TimeChart) return;
+                const fs = parseFloat(s3Els.freq.value)*1000; 
+                const ka = parseFloat(s3Els.ka.value);
+                
+                s3Els.flowFreq.textContent = (fs/1000) + 'k';
+                s3Els.flowKa.textContent = ka;
+                s3Els.flowKaVar.textContent = ka;
+                
+                if(ka > 1) { s3Els.warn.classList.remove('hidden'); } else { s3Els.warn.classList.add('hidden'); }
+
+                const pts = 200; const dur = 3/fs; const tL = []; const tD = [];
+                for(let i=0; i<pts; i++){
+                    const t=i/pts*dur; tL.push(t.toFixed(4)); tD.push(1 + ka * Math.cos(2 * Math.PI * fs * t));
+                }
+                
+                // Reset base color to ensure segment logic works on top
+                const lineC = getComputedStyle(document.documentElement).getPropertyValue('--color-chart-line').trim();
+                if(window.s3TimeChart.data.datasets[0]) window.s3TimeChart.data.datasets[0].borderColor = lineC;
+
+                window.s3TimeChart.data.labels=tL; window.s3TimeChart.data.datasets[0].data=tD; window.s3TimeChart.update();
+
+                const fR = fs * 4; 
+                const spectrumData = []; const labels = [];
+                const startF = -fR; const endF = fR; const step = fR / 50;
+                const addPoint = (f, amp) => { labels.push((f/1000).toFixed(1) + 'k'); spectrumData.push(amp); };
+
+                for(let f = startF; f <= endF; f += step) {
+                    let val = 0.02; 
+                    if (Math.abs(f - 0) < step/2) val = 1; 
+                    else if (Math.abs(f - fs) < step/2) val = ka/2; 
+                    else if (Math.abs(f + fs) < step/2) val = ka/2; 
+                    if(val > 0.05) { if(spectrumData.length > 0) spectrumData[spectrumData.length-1] = 0; addPoint(f, val); } else { addPoint(f, 0); }
+                }
+                window.s3FreqChart.data.labels = labels;
+                window.s3FreqChart.data.datasets[0].data = spectrumData;
+                window.s3FreqChart.options.scales.y.max = Math.max(1, ka/2) * 1.2;
+                window.s3FreqChart.update();
+
+                s3Els.cap.textContent = `Componente DC (1) en 0Hz y Señal en ±${fs/1000}kHz.`;
+            }
+
+            const s4Els = {
+                sr: document.getElementById('s4-input-sr'),
+                fm: document.getElementById('s4-input-fm'),
+                ka: document.getElementById('s4-input-ka'),
+                add: document.getElementById('s4-input-add'),
+                fc: document.getElementById('s4-input-fc'),
+                
+                grValFm: document.getElementById('gr-val-fm'),
+                grValSr: document.getElementById('gr-val-sr'),
+                grValKa: document.getElementById('gr-val-ka'),
+                grBlkSr1: document.getElementById('gr-blk-sr1'),
+                grBlkSr2: document.getElementById('gr-blk-sr2'),
+                grBlkFm: document.getElementById('gr-blk-fm'),
+                grBlkKa: document.getElementById('gr-blk-ka'),
+                grBlkAdd: document.getElementById('gr-blk-add'),
+                grBlkFc: document.getElementById('gr-blk-fc'),
+
+                warnOver: document.getElementById('s4-warning-overmod'),
+                warnAlias: document.getElementById('s4-warning-alias'),
+                cap: document.getElementById('s4-caption')
+            };
+
+            document.getElementById('am-slide-3-next').addEventListener('click', () => {
+                document.getElementById('am-slide-3').style.display = 'none';
+                document.getElementById('am-slide-4').style.display = 'block';
+                requestAnimationFrame(() => {
+                    if(!window.s4TimeChart) initS4Charts(); 
+                    else { window.s4TimeChart.resize(); window.s4FreqChart.resize(); }
+                    updateS4();
+                });
+            });
+            document.getElementById('am-slide-4-prev').addEventListener('click', () => {
+                document.getElementById('am-slide-4').style.display = 'none';
+                document.getElementById('am-slide-3').style.display = 'block';
+            });
+
+            [s4Els.sr, s4Els.fm, s4Els.ka, s4Els.add, s4Els.fc].forEach(i => i.addEventListener('input', updateS4));
+
+            function initS4Charts() {
+                window.s4TimeChart = new Chart(document.getElementById('s4TimeChart').getContext('2d'), {
+                    type: 'line', 
+                    data: {
+                        datasets: [{
+                            borderWidth: 2, pointRadius: 0, tension: 0.3,
+                        }]
+                    }, 
+                    options: getCommonOptions() 
+                });
+
+                window.s4FreqChart = new Chart(document.getElementById('s4FreqChart').getContext('2d'), {
+                    type: 'line', data: {datasets: [{borderWidth: 2, pointRadius: 0, tension: 0.1}]}, options: getCommonOptions() 
+                });
+                setTimeout(updateChartColors, 100);
+            }
+
+            function updateS4() {
+                if(!window.s4TimeChart) return;
+
+                const sr = parseFloat(s4Els.sr.value);
+                const fm = parseFloat(s4Els.fm.value) * 1000;
+                const ka = parseFloat(s4Els.ka.value);
+                const offset = parseFloat(s4Els.add.value);
+                const fc = parseFloat(s4Els.fc.value) * 1000;
+
+                s4Els.grValFm.textContent = (fm/1000) + 'k';
+                s4Els.grValSr.textContent = (sr/1000) + 'k';
+                s4Els.grValKa.textContent = ka;
+                s4Els.grBlkSr1.textContent = (sr/1000) + 'k';
+                s4Els.grBlkSr2.textContent = (sr/1000) + 'k';
+                s4Els.grBlkFm.textContent = (fm/1000) + 'k';
+                s4Els.grBlkKa.textContent = ka;
+                s4Els.grBlkAdd.textContent = offset;
+                s4Els.grBlkFc.textContent = (fc/1000) + 'k';
+
+                const isOvermod = (ka > offset); 
+                if(isOvermod) {
+                    s4Els.warnOver.classList.remove('hidden');
+                    s4Els.warnOver.classList.add('block');
+                } else {
+                    s4Els.warnOver.classList.add('hidden');
+                    s4Els.warnOver.classList.remove('block');
+                }
+
+                const fmax = fc + fm;
+                const isAliased = (sr < 2 * fmax);
+                if(isAliased) {
+                    s4Els.warnAlias.classList.remove('hidden');
+                    s4Els.warnAlias.classList.add('block');
+                } else {
+                    s4Els.warnAlias.classList.add('hidden');
+                    s4Els.warnAlias.classList.remove('block');
+                }
+
+                const cyclesToShow = 3; 
+                const duration = cyclesToShow / fm; 
+                const pts = 300; 
+                const tL = []; const tD = [];
+
+                const lineColor = isOvermod ? '#ef4444' : getComputedStyle(document.documentElement).getPropertyValue('--color-chart-line').trim();
+                window.s4TimeChart.data.datasets[0].borderColor = lineColor;
+
+                for(let i=0; i<pts; i++) {
+                    const t = i/pts * duration;
+                    const env = offset + ka * Math.cos(2 * Math.PI * fm * t);
+                    const car = Math.cos(2 * Math.PI * fc * t);
+                    tL.push((t*1000).toFixed(2));
+                    tD.push(env * car);
+                }
+                window.s4TimeChart.data.labels = tL;
+                window.s4TimeChart.data.datasets[0].data = tD;
+                window.s4TimeChart.update();
+
+                const span = fc + fm * 4;
+                const startF = -span; const endF = span;
+                const fLabels = []; const fData = [];
+                const fStep = span / 100; 
+
+                for(let f = startF; f <= endF; f += fStep) {
+                    let val = 0.02; 
+                    const absF = Math.abs(f);
+                    if (Math.abs(absF - fc) < fStep/1.5) val = 1; 
+                    else if (Math.abs(absF - (fc - fm)) < fStep/1.5) val = ka/2; 
+                    else if (Math.abs(absF - (fc + fm)) < fStep/1.5) val = ka/2; 
+                    
+                    fLabels.push((f/1000).toFixed(1) + 'k');
+                    fData.push(val);
+                }
+                window.s4FreqChart.data.labels = fLabels;
+                window.s4FreqChart.data.datasets[0].data = fData;
+                window.s4FreqChart.update();
+
+                s4Els.cap.innerHTML = `Espectro Completo: Portadora en <strong>&plusmn;${fc/1000} kHz</strong>, Bandas en <strong>&plusmn;${(fc-fm)/1000}</strong> y <strong>&plusmn;${(fc+fm)/1000} kHz</strong>`;
+            }
+        });
+    </script>
+</body>
+</html>

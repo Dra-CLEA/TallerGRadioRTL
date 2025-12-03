@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="es" class="theme-cream">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Ondas - Layout Horizontal Completo - Ejemplo 2 Sines</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root.theme-cream {
+            --color-bg-primary: #fdfaf4;
+            --color-bg-secondary: #ffffff;
+            --color-text-primary: #3a3a3a;
+            --color-text-secondary: #707070;
+            --color-border: #e0e0e0;
+            --color-accent: #ff6b6b;
+            --color-chart-grid: rgba(0, 0, 0, 0.1);
+            --color-line-1: #ff6b6b;
+            --color-line-2: #4ade80; 
+            --color-line-sum: #8b5cf6;
+            --color-block-info: #eef2ff;
+        }
+        :root.theme-dark {
+            --color-bg-primary: #1e1e1e;
+            --color-bg-secondary: #2d2d2d;
+            --color-text-primary: #e0e0e0;
+            --color-text-secondary: #aaaaaa;
+            --color-border: #444444;
+            --color-accent: #ff8787;
+            --color-chart-grid: rgba(255, 255, 255, 0.2);
+            --color-line-1: #ff8787;
+            --color-line-2: #4ade80;
+            --color-line-sum: #a78bfa;
+            --color-block-info: #374151;
+        }
+        :root.theme-gray {
+            --color-bg-primary: #f5f5f5;
+            --color-bg-secondary: #ffffff;
+            --color-text-primary: #333333;
+            --color-text-secondary: #555555;
+            --color-border: #dddddd;
+            --color-accent: #555555;
+            --color-chart-grid: rgba(0, 0, 0, 0.1);
+            --color-line-1: #333333;
+            --color-line-2: #666666;
+            --color-line-sum: #000000;
+            --color-block-info: #e5e5e5;
+        }
+
+        .bg-primary { background-color: var(--color-bg-primary); }
+        .bg-secondary { background-color: var(--color-bg-secondary); }
+        .text-primary { color: var(--color-text-primary); }
+        .text-secondary { color: var(--color-text-secondary); }
+        .border-custom { border-color: var(--color-border); }
+        .text-accent { color: var(--color-accent); }
+        .bg-block-info { background-color: var(--color-block-info); }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .practice-slide { animation: fadeIn 0.5s ease-out; }
+        
+        html, body, div, input, button { transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease; }
+
+        .gr-canvas-container {
+            position: relative; width: 100%; height: 280px; 
+            background-color: var(--color-bg-primary); 
+            border: 1px solid var(--color-border);
+            border-radius: 8px; overflow-x: auto; overflow-y: hidden;
+            font-family: sans-serif; user-select: none;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+        }
+        
+        .gr-block {
+            position: absolute; 
+            background-color: #e6e6ff; 
+            border: 2px solid #333; 
+            border-radius: 4px;
+            padding: 5px; 
+            box-shadow: 2px 2px 6px rgba(0,0,0,0.15); 
+            z-index: 10;
+            font-size: 11px;
+            color: black;
+            white-space: nowrap;
+        }
+        .gr-block:hover { transform: scale(1.02); z-index: 20; border-color: var(--color-accent); cursor: help; }
+        .theme-dark .gr-block { background-color: #e0e7ff; border-color: #666; }
+
+        .gr-title { font-weight: bold; text-align: center; border-bottom: 1px solid #999; margin-bottom: 4px; padding-bottom: 2px; }
+        .gr-param { font-family: monospace; margin-bottom: 1px; font-size: 10px; }
+        
+        .gr-port {
+            width: 12px; height: 10px; background-color: #ff9900; border: 1px solid #000;
+            position: absolute; cursor: pointer;
+        }
+        .gr-port.in { left: -7px; } .gr-port.out { right: -7px; }
+        
+        .gr-wires svg { position: absolute; top: 0; left: 0; width: 100%; min-width: 1000px; height: 100%; pointer-events: none; z-index: 1; }
+        .gr-wire { fill: none; stroke: var(--color-text-primary); stroke-width: 2; opacity: 0.6; }
+
+        .gnuradio-dialog {
+            background-color: var(--color-bg-secondary);
+            border: 1px solid var(--color-border); border-radius: 6px;
+            margin-bottom: 10px; overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .gnuradio-header {
+            background-color: var(--color-bg-primary); padding: 6px 10px;
+            font-weight: bold; font-size: 0.85rem; border-bottom: 1px solid var(--color-border);
+        }
+        .gnuradio-body { padding: 10px; font-size: 0.85rem; }
+        .gnuradio-input-group { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+        .gnuradio-input {
+            width: 80px; padding: 2px 6px; border: 1px solid var(--color-border);
+            border-radius: 3px; background-color: var(--color-bg-primary); color: var(--color-text-primary);
+            font-family: monospace; text-align: right;
+        }
+
+        canvas { max-height: 200px; width: 100%; }
+        
+        input[type=range] { height: 6px; border-radius: 5px; cursor: pointer; }
+        
+        .info-card { @apply bg-block-info p-3 rounded text-sm text-secondary border border-custom mb-2; }
+        .info-title { @apply font-bold text-primary mb-1 block; }
+    </style>
+</head>
+<body class="bg-primary text-primary font-sans">
+
+    <main class="min-h-screen p-4 md:p-6 max-w-[1400px] mx-auto flex flex-col gap-6">
+        <header class="flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-accent rounded-lg flex items-center justify-center text-white font-bold shadow-lg">G</div>
+                <div>
+                    <h2 class="text-xl font-bold text-accent leading-none">GNURadio</h2>
+                    <span class="text-xs text-secondary">Generador de Ondas</span>
+                </div>
+            </div>
+            <button id="theme-toggle-btn" class="p-2 rounded-full bg-secondary border border-custom shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-transform hover:scale-105">
+                <span id="icon-theme">☀️</span>
+            </button>
+        </header>
+
+        <section class="w-full">
+            <div class="bg-secondary rounded-xl shadow-lg border border-custom p-1">
+                <div class="flex justify-between items-center px-4 py-2 border-b border-custom bg-primary rounded-t-lg">
+                    <h3 class="font-bold text-accent">1. Diagrama de Flujo (Flowgraph)</h3>
+                    <span class="text-xs text-secondary">Sample Rate: 200kHz</span>
+                </div>
+                
+                <div class="gr-canvas-container" id="flowgraph-area">
+                    <div class="gr-wires">
+                        <svg width="1200" height="280">
+                            <path d="M 180 65 C 250 65, 250 120, 320 125" class="gr-wire"/>
+                            <path d="M 180 205 C 250 205, 250 150, 320 145" class="gr-wire"/>
+                            <path d="M 400 135 L 480 135" class="gr-wire"/>
+                            <path d="M 620 135 L 680 135" class="gr-wire"/>
+                            <path d="M 680 135 C 720 135, 720 65, 780 65" class="gr-wire"/>
+                            <path d="M 680 135 C 720 135, 720 205, 780 205" class="gr-wire"/>
+                        </svg>
+                    </div>
+
+                    <div class="gr-block" style="top: 40px; left: 20px; width: 160px;" title="Genera una onda senoidal pura">
+                        <div class="gr-title">Signal Source (1)</div>
+                        <div class="gr-param">Waveform: Sine</div>
+                        <div class="gr-param">Freq: <span id="lbl-f1">10k</span></div>
+                        <div class="gr-param">Amp: <span id="lbl-a1">1</span></div>
+                        <div class="gr-port out" style="top: 50%;"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 180px; left: 20px; width: 160px;" title="Genera una onda senoidal pura">
+                        <div class="gr-title">Signal Source (2)</div>
+                        <div class="gr-param">Waveform: Sine</div>
+                        <div class="gr-param">Freq: <span id="lbl-f2">2k</span></div>
+                        <div class="gr-param">Amp: <span id="lbl-a2">1</span></div>
+                        <div class="gr-port out" style="top: 50%;"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 110px; left: 320px; width: 80px; height: 50px; display:flex; align-items:center; justify-content:center; font-weight:bold;" title="Suma las señales punto a punto">
+                        ADD
+                        <div class="gr-port in" style="top: 30%;"></div>
+                        <div class="gr-port in" style="top: 70%;"></div>
+                        <div class="gr-port out" style="top: 50%;"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 110px; left: 480px; width: 140px;" title="Limita la velocidad de procesamiento para igualar el tiempo real">
+                        <div class="gr-title">Throttle</div>
+                        <div class="gr-param">Sample Rate: 200k</div>
+                        <div class="gr-port in" style="top: 50%;"></div>
+                        <div class="gr-port out" style="top: 50%;"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 40px; left: 780px; width: 140px; border-color: var(--color-accent);" title="Visualiza la señal en el tiempo">
+                        <div class="gr-title">QT GUI Time Sink</div>
+                        <div class="gr-param">Inputs: 1</div>
+                        <div class="gr-param">Update: 0.10s</div>
+                        <div class="gr-port in" style="top: 50%;"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 180px; left: 780px; width: 140px;" title="Guarda datos binarios en disco">
+                        <div class="gr-title">File Sink</div>
+                        <div class="gr-param">File: output.dat</div>
+                        <div class="gr-param">Append: Overwrite</div>
+                        <div class="gr-port in" style="top: 50%;"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <div class="lg:col-span-4 flex flex-col gap-4">
+                
+                <div class="bg-secondary p-4 rounded-xl shadow border border-custom">
+                    <h3 class="font-bold text-primary mb-4 border-b border-custom pb-2">2. Controles de Señal</h3>
+                    
+                    <div class="gnuradio-dialog">
+                        <div class="gnuradio-header text-accent">Fuente 1 (Alta Frec.)</div>
+                        <div class="gnuradio-body">
+                            <div class="gnuradio-input-group">
+                                <label>Frecuencia (Hz)</label>
+                                <input type="number" id="input-f1" value="10000" step="100" class="gnuradio-input">
+                            </div>
+                            <div class="gnuradio-input-group">
+                                <label>Amplitud</label>
+                                <input type="number" id="input-a1" value="1" step="0.1" class="gnuradio-input">
+                            </div>
+                            <input type="range" id="slider-f1" min="1000" max="20000" value="10000" class="w-full mt-2 accent-red-500">
+                        </div>
+                    </div>
+
+                    <div class="gnuradio-dialog">
+                        <div class="gnuradio-header" style="color: var(--color-line-2);">Fuente 2 (Baja Frec.)</div>
+                        <div class="gnuradio-body">
+                            <div class="gnuradio-input-group">
+                                <label>Frecuencia (Hz)</label>
+                                <input type="number" id="input-f2" value="2000" step="100" class="gnuradio-input">
+                            </div>
+                            <div class="gnuradio-input-group">
+                                <label>Amplitud</label>
+                                <input type="number" id="input-a2" value="1" step="0.1" class="gnuradio-input">
+                            </div>
+                            <input type="range" id="slider-f2" min="100" max="10000" value="2000" class="w-full mt-2 accent-green-500">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-secondary p-4 rounded-xl shadow border border-custom flex-grow">
+                    <h3 class="font-bold text-primary mb-3 border-b border-custom pb-2">3. Fundamentos Teóricos</h3>
+                    
+                    <div class="mb-4">
+                        <span class="info-title text-accent">Principio de Superposición</span>
+                        <p class="text-sm text-secondary leading-relaxed">
+                            Cuando dos ondas se encuentran en el mismo medio, la onda resultante es la <strong>suma algebraica</strong> de las ondas individuales en cada instante de tiempo.
+                        </p>
+                        <div class="font-mono mt-2 bg-primary p-2 rounded border border-custom text-center text-sm font-bold text-primary">
+                            y(t) = y₁(t) + y₂(t)
+                        </div>
+                    </div>
+
+                    <div>
+                        <span class="info-title text-accent">Interferencia</span>
+                        <p class="text-sm text-secondary leading-relaxed">
+                            <ul class="list-disc pl-4 space-y-1">
+                                <li><strong>Constructiva:</strong> Cuando los picos coinciden, se suman (mayor amplitud).</li>
+                                <li><strong>Destructiva:</strong> Cuando un pico coincide con un valle, se restan (menor amplitud o cero).</li>
+                            </ul>
+                        </p>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="lg:col-span-8 flex flex-col gap-4">
+                
+                <div class="bg-secondary p-4 rounded-xl shadow border border-custom">
+                    <div class="flex flex-col sm:flex-row justify-between items-end sm:items-center mb-3 gap-2">
+                        <h3 class="font-bold text-primary">4. Dominio del Tiempo (Time Sink)</h3>
+                        <div class="flex items-center gap-2 bg-primary px-3 py-1 rounded-full border border-custom">
+                            <span class="text-xs font-bold text-secondary whitespace-nowrap">Zoom:</span>
+                            <input type="range" id="time-zoom" min="10" max="100" value="50" class="w-32 accent-purple-500 h-2">
+                            <span class="text-xs font-mono w-8 text-right text-accent" id="zoom-val">1x</span>
+                        </div>
+                    </div>
+                    <div class="bg-primary p-2 rounded border border-custom relative h-48">
+                        <canvas id="chart-time"></canvas>
+                        <div class="absolute top-2 right-2 bg-white/80 dark:bg-black/50 p-1 rounded text-[10px] flex gap-2 border border-custom backdrop-blur-sm">
+                            <span style="color:var(--color-line-1)">● F1</span>
+                            <span style="color:var(--color-line-2)">● F2</span>
+                            <span class="font-bold" style="color:var(--color-line-sum)">━ Suma</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-secondary p-4 rounded-xl shadow border border-custom">
+                    <h3 class="font-bold text-primary mb-2">5. Dominio de Frecuencia (FFT)</h3>
+                    <div class="bg-primary p-2 rounded border border-custom h-40">
+                        <canvas id="chart-freq"></canvas>
+                    </div>
+                    <div id="beat-warning" class="hidden mt-2 p-2 bg-yellow-50 border border-yellow-200 text-yellow-800 text-xs rounded font-bold text-center animate-pulse">
+                        ⚠️ ¡Batido detectado! Frecuencias muy cercanas.
+                    </div>
+                </div>
+
+                <div class="bg-secondary p-4 rounded-xl shadow border border-custom">
+                    <h3 class="font-bold text-primary mb-3 border-b border-custom pb-2">6. Guía de Bloques (Referencia)</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="info-card">
+                            <span class="info-title">Signal Source (Fuente)</span>
+                            Genera una señal periódica (seno, coseno, cuadrada...). Definimos su Frecuencia y Amplitud.
+                        </div>
+                        <div class="info-card">
+                            <span class="info-title">Add (Suma)</span>
+                            Bloque matemático que toma dos o más entradas y las suma muestra a muestra: <code>out[i] = in0[i] + in1[i]</code>.
+                        </div>
+                        <div class="info-card">
+                            <span class="info-title">Throttle (Regulador)</span>
+                            Necesario en simulaciones. Evita que la CPU vaya al 100%. Obliga al flujo a ir a la velocidad del <code>Sample Rate</code> (200k muestras/seg).
+                        </div>
+                        <div class="info-card border-l-4 border-l-purple-500">
+                            <span class="info-title">File Sink (Archivo)</span>
+                            Guarda la señal resultante en el disco duro. 
+                            <br><strong>Nota Importante:</strong> Escribe datos binarios crudos (floats de 32 bits) sin cabeceras. Para leerlo luego (en Python/Matlab) necesitas saber el tipo de dato exacto.
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const themeBtn = document.getElementById('theme-toggle-btn');
+            const iconTheme = document.getElementById('icon-theme');
+            const themes = ['cream', 'dark', 'gray'];
+            let currentThemeIdx = 0;
+
+            function updateTheme() {
+                const theme = themes[currentThemeIdx];
+                document.documentElement.className = `theme-${theme}`;
+                iconTheme.textContent = theme === 'cream' ? '☀️' : (theme === 'dark' ? '🌙' : '⚙️');
+                updateChartColors();
+            }
+
+            themeBtn.addEventListener('click', () => {
+                currentThemeIdx = (currentThemeIdx + 1) % themes.length;
+                updateTheme();
+            });
+
+            const state = {
+                f1: 10000, a1: 1,
+                f2: 2000,  a2: 1,
+                time: 0,
+                zoomFactor: 50 
+            };
+
+            const dom = {
+                inF1: document.getElementById('input-f1'), inA1: document.getElementById('input-a1'), slF1: document.getElementById('slider-f1'),
+                lblF1: document.getElementById('lbl-f1'), lblA1: document.getElementById('lbl-a1'),
+                inF2: document.getElementById('input-f2'), inA2: document.getElementById('input-a2'), slF2: document.getElementById('slider-f2'),
+                lblF2: document.getElementById('lbl-f2'), lblA2: document.getElementById('lbl-a2'),
+                beatWarn: document.getElementById('beat-warning'),
+                zoomSlider: document.getElementById('time-zoom'),
+                zoomLabel: document.getElementById('zoom-val')
+            };
+
+            const commonOptions = {
+                responsive: true, maintainAspectRatio: false, animation: false,
+                plugins: { legend: { display: false } },
+                scales: { x: { display: false }, y: { display: false, min: -2.5, max: 2.5 } },
+                elements: { point: { radius: 0 }, line: { borderWidth: 2, tension: 0.3 } }
+            };
+
+            const chartTime = new Chart(document.getElementById('chart-time'), {
+                type: 'line',
+                data: {
+                    labels: Array(300).fill(''),
+                    datasets: [
+                        { data: [], borderColor: '#ff6b6b', borderWidth: 1, borderDash: [5,5], label: 'F1' },
+                        { data: [], borderColor: '#4ade80', borderWidth: 1, borderDash: [5,5], label: 'F2' },
+                        { data: [], borderColor: '#8b5cf6', borderWidth: 2.5, label: 'Suma' }
+                    ]
+                },
+                options: commonOptions
+            });
+
+            const chartFreq = new Chart(document.getElementById('chart-freq'), {
+                type: 'bar',
+                data: { labels: [], datasets: [{ data: [], barThickness: 6 }] },
+                options: {
+                    ...commonOptions,
+                    scales: {
+                        x: { display: true, grid: { display: false }, ticks: { font: { size: 10 } } },
+                        y: { display: true, min: 0, max: 2.2, grid: { color: 'rgba(0,0,0,0.05)' } }
+                    },
+                    animation: { duration: 150 }
+                }
+            });
+
+            function updateInputs() {
+                state.f1 = parseFloat(dom.inF1.value); state.a1 = parseFloat(dom.inA1.value);
+                state.f2 = parseFloat(dom.inF2.value); state.a2 = parseFloat(dom.inA2.value);
+                state.zoomFactor = parseInt(dom.zoomSlider.value);
+
+                dom.lblF1.textContent = (state.f1/1000).toFixed(1) + 'k'; dom.lblA1.textContent = state.a1;
+                dom.lblF2.textContent = (state.f2/1000).toFixed(1) + 'k'; dom.lblA2.textContent = state.a2;
+
+                const zoomDisplay = (state.zoomFactor / 50).toFixed(1);
+                dom.zoomLabel.textContent = zoomDisplay + 'x';
+
+                const delta = Math.abs(state.f1 - state.f2);
+                if (delta < 500 && delta > 0) {
+                    dom.beatWarn.classList.remove('hidden');
+                    dom.beatWarn.textContent = `⚠️ ¡Batido detectado! Frecuencia de pulsación: ${delta} Hz`;
+                } else {
+                    dom.beatWarn.classList.add('hidden');
+                }
+            }
+
+            function updateChartColors() {
+                const style = getComputedStyle(document.documentElement);
+                chartTime.data.datasets[0].borderColor = style.getPropertyValue('--color-line-1').trim();
+                chartTime.data.datasets[1].borderColor = style.getPropertyValue('--color-line-2').trim();
+                chartTime.data.datasets[2].borderColor = style.getPropertyValue('--color-line-sum').trim();
+                chartTime.update('none');
+                chartFreq.update('none');
+            }
+
+            function animate() {
+                const baseWindow = 0.005; 
+                const zoomMultiplier = (110 - state.zoomFactor) / 50; 
+                const windowSize = baseWindow * zoomMultiplier; 
+                
+                const points = 300;
+                const tData1 = [], tData2 = [], tDataSum = [];
+                
+                state.time += windowSize * 0.05; 
+
+                for(let i=0; i<points; i++) {
+                    const t = state.time + (i / points) * windowSize;
+                    const v1 = state.a1 * Math.sin(2 * Math.PI * state.f1 * t);
+                    const v2 = state.a2 * Math.sin(2 * Math.PI * state.f2 * t);
+                    tData1.push(v1); tData2.push(v2); tDataSum.push(v1 + v2);
+                }
+
+                chartTime.data.datasets[0].data = tData1;
+                chartTime.data.datasets[1].data = tData2;
+                chartTime.data.datasets[2].data = tDataSum;
+                chartTime.update('none');
+
+                const maxFreq = 22000;
+                const bins = 40;
+                let freqData = Array(bins).fill(0);
+                
+                const bin1 = Math.min(bins-1, Math.round((state.f1 / maxFreq) * bins));
+                const bin2 = Math.min(bins-1, Math.round((state.f2 / maxFreq) * bins));
+                
+                freqData[bin1] = state.a1;
+                if(freqData[bin2] > 0) freqData[bin2] += state.a2; 
+                else freqData[bin2] = state.a2;
+
+                const style = getComputedStyle(document.documentElement);
+                const c1 = style.getPropertyValue('--color-line-1').trim();
+                const c2 = style.getPropertyValue('--color-line-2').trim();
+                const cSum = style.getPropertyValue('--color-line-sum').trim();
+
+                const bgColors = freqData.map((v, i) => {
+                    if (i === bin1 && i === bin2) return cSum;
+                    if (i === bin1) return c1;
+                    if (i === bin2) return c2;
+                    return '#000000';
+                });
+
+                const labels = Array(bins).fill('');
+                labels[0] = '0'; labels[10] = '5k'; labels[20] = '10k'; labels[30] = '15k'; labels[39] = '20k';
+
+                chartFreq.data.labels = labels;
+                chartFreq.data.datasets[0].data = freqData;
+                chartFreq.data.datasets[0].backgroundColor = bgColors;
+                chartFreq.update('none');
+
+                requestAnimationFrame(animate);
+            }
+
+            [dom.inF1, dom.inA1, dom.inF2, dom.inA2, dom.zoomSlider].forEach(el => el.addEventListener('input', updateInputs));
+            dom.slF1.addEventListener('input', (e) => { dom.inF1.value = e.target.value; updateInputs(); });
+            dom.slF2.addEventListener('input', (e) => { dom.inF2.value = e.target.value; updateInputs(); });
+
+            updateTheme();
+            updateInputs();
+            animate();
+        });
+    </script>
+</body>
+</html>

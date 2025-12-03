@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="es" class="theme-cream">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSB: Sistema Completo con E/S</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root.theme-cream {
+            --color-bg-primary: #fdfaf4;
+            --color-bg-secondary: #ffffff;
+            --color-text-primary: #3a3a3a;
+            --color-text-secondary: #707070;
+            --color-border: #e0e0e0;
+            --color-accent: #3b82f6; 
+            --color-chart-grid: rgba(0, 0, 0, 0.1);
+            --color-block-info: #eef2ff;
+        }
+        :root.theme-dark {
+            --color-bg-primary: #1e1e1e;
+            --color-bg-secondary: #2d2d2d;
+            --color-text-primary: #e0e0e0;
+            --color-text-secondary: #aaaaaa;
+            --color-border: #444444;
+            --color-accent: #60a5fa;
+            --color-chart-grid: rgba(255, 255, 255, 0.2);
+            --color-block-info: #374151;
+        }
+        
+        .bg-primary { background-color: var(--color-bg-primary); }
+        .bg-secondary { background-color: var(--color-bg-secondary); }
+        .text-primary { color: var(--color-text-primary); }
+        .text-secondary { color: var(--color-text-secondary); }
+        .border-custom { border-color: var(--color-border); }
+        .text-accent { color: var(--color-accent); }
+        .bg-block-info { background-color: var(--color-block-info); }
+
+        html, body { transition: background-color 0.3s ease, color 0.3s ease; }
+
+        .gr-canvas-container {
+            position: relative; width: 100%; height: 550px; 
+            background-color: var(--color-bg-primary); 
+            border: 1px solid var(--color-border);
+            border-radius: 8px; overflow-x: auto; overflow-y: hidden;
+            font-family: sans-serif; user-select: none;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+            background-image: radial-gradient(var(--color-border) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        
+        .gr-block {
+            position: absolute; 
+            background-color: #f3f4f6; 
+            border: 2px solid #333; 
+            border-radius: 4px; padding: 5px; 
+            box-shadow: 3px 3px 0px rgba(0,0,0,0.1); 
+            z-index: 10; font-size: 10px; color: black; white-space: nowrap;
+        }
+        .gr-block:hover { transform: scale(1.02); z-index: 20; border-color: var(--color-accent); cursor: help; }
+        .theme-dark .gr-block { background-color: #e5e7eb; border-color: #666; }
+
+        .gr-title { font-weight: bold; text-align: center; border-bottom: 1px solid #999; margin-bottom: 3px; padding-bottom: 2px; font-size: 11px;}
+        .gr-param { font-family: monospace; margin-bottom: 1px; font-size: 9px; overflow: hidden; text-overflow: ellipsis; display: block; }
+        .gr-param-key { font-weight: 600; color: #4b5563; }
+        
+        .gr-port { width: 10px; height: 10px; border: 1px solid #000; position: absolute; cursor: pointer; }
+        .gr-port.complex { background-color: #3b82f6; } 
+        .gr-port.float { background-color: #f97316; }   
+        .gr-port.in { left: -6px; } .gr-port.out { right: -6px; }
+        
+        .gr-wires svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+        .gr-wire { fill: none; stroke-width: 2; opacity: 0.8; }
+        .wire-float { stroke: #f97316; }
+        .wire-complex { stroke: #3b82f6; }
+
+        .info-card { @apply bg-block-info p-3 rounded-lg text-xs text-secondary border border-custom mb-3 transition-all hover:shadow-md; }
+        .info-title { @apply font-bold text-accent mb-1 block text-sm flex items-center gap-2; }
+        
+        canvas { max-height: 220px; width: 100%; }
+        input[type=range] { height: 6px; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body class="bg-primary text-primary font-sans">
+
+    <main class="min-h-screen p-4 md:p-6 max-w-[1400px] mx-auto flex flex-col gap-6">
+        
+        <header class="flex justify-between items-center border-b border-custom pb-4">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg text-xl">SSB</div>
+                <div>
+                    <h2 class="text-2xl font-bold text-primary leading-none">Sistema SSB Completo</h2>
+                    <span class="text-xs text-secondary font-mono">Entradas Múltiples + Procesado + Guardado IQ</span>
+                </div>
+            </div>
+            <button id="theme-toggle-btn" class="p-2 rounded-full bg-secondary border border-custom shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-transform hover:scale-105">
+                <span>🎨</span>
+            </button>
+        </header>
+
+        <section class="w-full">
+            <div class="bg-secondary rounded-xl shadow-lg border border-custom p-1">
+                <div class="flex justify-between items-center px-4 py-2 border-b border-custom bg-primary rounded-t-lg">
+                    <h3 class="font-bold text-accent flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                        Diagrama de Flujo (GNU Radio)
+                    </h3>
+                    <div class="text-[10px] text-secondary font-mono flex gap-4">
+                        <span>Entradas: 3 (1 Activa)</span>
+                        <span>Salida: .dat (Compleja)</span>
+                    </div>
+                </div>
+                
+                <div class="gr-canvas-container" id="flowgraph-area">
+                    <div class="gr-wires">
+                        <svg width="1500" height="550">
+                            <path d="M 140 60 C 180 60, 180 140, 240 140" class="gr-wire wire-float"/>
+                            <path d="M 140 140 L 240 140" class="gr-wire wire-float"/>
+                            <path d="M 140 220 C 180 220, 180 140, 240 140" class="gr-wire wire-float"/>
+
+                            <path d="M 370 140 L 410 140" class="gr-wire wire-float"/>
+                            <path d="M 510 140 L 550 140" class="gr-wire wire-complex"/>
+                            
+                            <path d="M 980 220 L 1040 220" class="gr-wire wire-float"/>
+
+                            <path d="M 1040 220 C 1060 220, 1060 200, 1180 200" class="gr-wire wire-float"/> 
+
+                            <path d="M 1040 220 C 1060 220, 1060 260, 1080 260" class="gr-wire wire-float"/>
+                            
+                            <path d="M 1160 260 C 1170 260, 1170 240, 1180 240" class="gr-wire wire-float"/>
+
+                            <path d="M 1300 220 L 1340 220" class="gr-wire wire-complex"/>
+
+                        </svg>
+                    </div>
+
+                    
+                    <div class="gr-block source" style="top: 20px; left: 10px; width: 130px;" title="Fuente 1: Tono puro generado matemáticamente">
+                        <div class="gr-title">Signal Source</div>
+                        <span class="gr-param">Wave: Cosine</span>
+                        <span class="gr-param">Freq: 1k</span>
+                        <div class="gr-port out float" style="top: 50%;"></div>
+                    </div>
+
+                    <div class="gr-block source" style="top: 110px; left: 10px; width: 130px;" title="Fuente 2: Micrófono del PC">
+                        <div class="gr-title">Audio Source</div>
+                        <span class="gr-param">Rate: 48kHz</span>
+                        <span class="gr-param">Device: pulse</span>
+                        <div class="gr-port out float" style="top: 50%;"></div>
+                    </div>
+
+                    <div class="gr-block source" style="top: 190px; left: 10px; width: 130px;" title="Fuente 3: Archivo de audio grabado">
+                        <div class="gr-title">Wav File Source</div>
+                        <span class="gr-param">File: elcuervo.wav</span>
+                        <span class="gr-param">Repeat: Yes</span>
+                        <div class="gr-port out float" style="top: 50%;"></div>
+                    </div>
+
+                    <div class="gr-block filter" style="top: 100px; left: 240px; width: 130px; border-color: #ef4444;">
+                        <div class="gr-title text-red-600">BPF (Voice)</div>
+                        <span class="gr-param">300Hz - 2.7kHz</span>
+                        <div class="gr-port in float" style="top: 50%;"></div>
+                        <div class="gr-port out float" style="top: 50%;"></div>
+                    </div>
+
+                    <div class="gr-block math" style="top: 110px; left: 410px; width: 100px;">
+                        <div class="gr-title">Hilbert</div>
+                        <span class="gr-param">Phase: -90°</span>
+                        <div class="gr-port in float" style="top: 50%;"></div>
+                        <div class="gr-port out complex" style="top: 50%;"></div>
+                    </div>
+                    <div class="absolute top-[130px] left-[580px] text-gray-400 text-xs italic font-mono border border-dashed border-gray-300 p-2 rounded">
+                        [...Proceso SSB Weaver...]
+                    </div>
+
+                    <div class="gr-block math" style="top: 190px; left: 880px; width: 100px; background-color: #dbeafe;">
+                        <div class="gr-title">ADD (LSB)</div>
+                        <span class="gr-param text-blue-600 font-bold">Salida Final</span>
+                        <div class="gr-port in float" style="top: 30%;"></div>
+                        <div class="gr-port in float" style="top: 70%;"></div>
+                        <div class="gr-port out float" style="top: 50%;"></div>
+                    </div>
+
+
+                    <div class="gr-block math" style="top: 240px; left: 1080px; width: 90px;" title="Anula la parte imaginaria multiplicando por 0">
+                        <div class="gr-title">Mult Const</div>
+                        <span class="gr-param font-bold">Const: 0</span>
+                        <div class="gr-port in float" style="top: 50%;"></div>
+                        <div class="gr-port out float" style="top: 50%;"></div>
+                    </div>
+
+                    <div class="gr-block math" style="top: 190px; left: 1180px; width: 120px;" title="Convierte 2 flotantes en 1 complejo (Re + jIm)">
+                        <div class="gr-title">Float To Complex</div>
+                        <div class="absolute left-0 top-[25%] text-[9px] font-bold text-gray-500 pl-1">Re</div>
+                        <div class="gr-port in float" style="top: 25%;"></div>
+                        
+                        <div class="absolute left-0 top-[65%] text-[9px] font-bold text-gray-500 pl-1">Im</div>
+                        <div class="gr-port in float" style="top: 65%;"></div>
+
+                        <div class="gr-port out complex" style="top: 50%;"></div>
+                    </div>
+
+                    <div class="gr-block source" style="top: 190px; left: 1340px; width: 130px;" title="Guarda los datos binarios en disco">
+                        <div class="gr-title">File Sink</div>
+                        <span class="gr-param">File: cuervo_cpx.dat</span>
+                        <span class="gr-param">Unbuffered: Off</span>
+                        <span class="gr-param">Append: Overwrite</span>
+                        <div class="gr-port in complex" style="top: 50%;"></div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <div class="lg:col-span-6 flex flex-col gap-4">
+                <div class="bg-secondary p-5 rounded-xl shadow border border-custom h-full">
+                    <h3 class="font-bold text-primary mb-4 border-b border-custom pb-2 text-lg">1. Fuentes de Entrada (Input)</h3>
+                    <p class="text-xs text-secondary mb-3">
+                        En GNU Radio podemos tener varios bloques de entrada colocados, pero <strong>solo uno debe estar conectado</strong> o habilitado a la vez para evitar errores de flujo.
+                    </p>
+                    
+                    <div class="space-y-4">
+                        <div class="info-card border-l-4 border-l-gray-400">
+                            <span class="info-title">🔊 Signal Source (Coseno)</span>
+                            <p>Genera una señal matemática perfecta. Es ideal para probar que el sistema funciona y calibrar frecuencias. No contiene información real, solo un tono.</p>
+                        </div>
+
+                        <div class="info-card border-l-4 border-l-green-500">
+                            <span class="info-title">🎤 Audio Source (Micrófono)</span>
+                            <p>Captura el audio en tiempo real desde la tarjeta de sonido (sistema <code>pulse</code> o <code>alsa</code>). Permite transmitir tu propia voz a través del modulador SSB.</p>
+                        </div>
+
+                        <div class="info-card border-l-4 border-l-purple-500">
+                            <span class="info-title">📁 Wav File Source (Archivo)</span>
+                            <p>Lee un archivo de audio pregrabado (como <code>elcuervo.wav</code>). Útil para transmitir música o mensajes repetitivos. El parámetro <strong>Repeat: Yes</strong> hace que suene en bucle.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-6 flex flex-col gap-4">
+                <div class="bg-secondary p-5 rounded-xl shadow border border-custom h-full">
+                    <h3 class="font-bold text-primary mb-4 border-b border-custom pb-2 text-lg">2. Guardado de Datos (.dat)</h3>
+                    <p class="text-xs text-secondary mb-3">
+                        Para guardar la señal modulada y poder transmitirla luego (por ejemplo, con HackRF), necesitamos un formato específico.
+                    </p>
+
+                    <div class="space-y-4">
+                        <div class="info-card border-l-4 border-l-blue-500">
+                            <span class="info-title">➕ Salida del Sumador (Add)</span>
+                            <p>Aquí tenemos nuestra señal SSB (Banda Lateral Única) ya modulada. Es una señal de tipo <strong>Float</strong> (Real).</p>
+                        </div>
+
+                        <div class="info-card border-l-4 border-l-orange-500">
+                            <span class="info-title">✖️ Multiply Const (Generar 0)</span>
+                            <p>Tomamos la señal y la multiplicamos por <strong>0</strong>. ¿Por qué? Porque necesitamos crear una "parte imaginaria" vacía. El resultado es una línea de ceros.</p>
+                        </div>
+
+                        <div class="info-card border-l-4 border-l-indigo-600">
+                            <span class="info-title">🔄 Float To Complex (Empaquetado)</span>
+                            <p>Este bloque es el "pegamento". Toma dos entradas flotantes y saca una compleja:</p>
+                            <ul class="list-disc pl-4 mt-1 opacity-90 text-[10px]">
+                                <li><strong>Entrada Re (In0):</strong> La señal SSB real.</li>
+                                <li><strong>Entrada Im (In1):</strong> Los ceros que generamos abajo.</li>
+                            </ul>
+                            <p class="mt-1">Resultado: Una señal compleja <code>(Señal + j0)</code>.</p>
+                        </div>
+
+                        <div class="info-card border-l-4 border-l-gray-600">
+                            <span class="info-title">💾 File Sink (Archivo Binario)</span>
+                            <p>Guarda los datos "raw" (crudos) en el disco duro. El archivo <code>cuervo_cpx.dat</code> contendrá pares de números (I, Q) listos para ser transmitidos por hardware SDR.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="w-full bg-secondary p-4 rounded-xl shadow border border-custom">
+             <h3 class="font-bold text-primary text-sm mb-2">Monitor de Salida (Lo que se guarda en el .dat)</h3>
+             <div class="bg-primary p-2 rounded border border-custom relative h-40">
+                <canvas id="spectrum-chart"></canvas>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const themeBtn = document.getElementById('theme-toggle-btn');
+            const themes = ['cream', 'dark'];
+            let currentThemeIdx = 0;
+            
+            function updateTheme() {
+                const theme = themes[currentThemeIdx];
+                document.documentElement.className = `theme-${theme}`;
+                
+                const style = getComputedStyle(document.documentElement);
+                const gridColor = style.getPropertyValue('--color-chart-grid').trim();
+                if(window.chartSpectrum) {
+                    window.chartSpectrum.options.scales.x.grid.color = gridColor;
+                    window.chartSpectrum.options.scales.y.grid.color = gridColor;
+                    window.chartSpectrum.update('none');
+                }
+            }
+            themeBtn.addEventListener('click', () => {
+                currentThemeIdx = (currentThemeIdx + 1) % themes.length;
+                updateTheme();
+            });
+
+            const ctxSpec = document.getElementById('spectrum-chart').getContext('2d');
+            window.chartSpectrum = new Chart(ctxSpec, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 100}, (_, i) => i),
+                    datasets: [{
+                        label: 'Señal SSB en Archivo',
+                        data: Array.from({length: 100}, (_, i) => Math.exp(-Math.pow(i-60, 2)/50) ),
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                        fill: true,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { 
+                        x: { display: false }, 
+                        y: { display: false, min: 0, max: 1.2 } 
+                    }
+                }
+            });
+            updateTheme();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="es" class="theme-cream">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transmisor BPSK: Root Raised Cosine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root.theme-cream {
+            --color-bg-primary: #fdfaf4;
+            --color-bg-secondary: #ffffff;
+            --color-text-primary: #3a3a3a;
+            --color-text-secondary: #505050; 
+            --color-border: #e0e0e0;
+            --color-accent: #3b82f6; 
+            --color-block-info: #eef2ff;
+        }
+        :root.theme-dark {
+            --color-bg-primary: #1e1e1e;
+            --color-bg-secondary: #2d2d2d;
+            --color-text-primary: #e0e0e0;
+            --color-text-secondary: #cccccc;
+            --color-border: #444444;
+            --color-accent: #60a5fa;
+            --color-block-info: #374151;
+        }
+        
+        .bg-primary { background-color: var(--color-bg-primary); }
+        .bg-secondary { background-color: var(--color-bg-secondary); }
+        .text-primary { color: var(--color-text-primary); }
+        .text-secondary { color: var(--color-text-secondary); }
+        .border-custom { border-color: var(--color-border); }
+        
+        .gr-canvas-container {
+            position: relative; width: 100%; height: 380px; 
+            background-color: var(--color-bg-primary); 
+            border: 1px solid var(--color-border);
+            border-radius: 8px; overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            user-select: none;
+            background-image: radial-gradient(var(--color-border) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        
+        .gr-block {
+            position: absolute; 
+            background-color: #f3f4f6;
+            border: 2px solid #333; 
+            border-radius: 2px; 
+            box-shadow: 2px 2px 4px rgba(0,0,0,0.15); 
+            z-index: 10; 
+            font-size: 10px; color: black;
+            display: flex; flex-direction: column;
+            min-width: 130px;
+        }
+        
+        .gr-header {
+            background-color: #e5e7eb; border-bottom: 1px solid #999;
+            padding: 3px 5px; font-weight: bold; text-align: center;
+        }
+        .gr-body { padding: 4px; font-family: monospace; font-size: 9px; line-height: 1.2; }
+        .gr-param { margin-bottom: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .gr-key { font-weight: 600; color: #374151; }
+
+        .gr-port { width: 10px; height: 10px; position: absolute; border: 1px solid #000; cursor: pointer; }
+        .type-complex { background-color: #3b82f6; } 
+        .type-float { background-color: #f97316; }   
+        .port-out { right: -6px; top: 50%; transform: translateY(-50%); }
+        .port-in { left: -6px; top: 50%; transform: translateY(-50%); }
+
+        .gr-wires svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+        .gr-wire { fill: none; stroke-width: 2; opacity: 0.8; stroke: #333; }
+        
+        .info-card { @apply bg-block-info p-3 rounded-lg text-xs text-secondary border border-custom mb-3 transition-all hover:shadow-md; }
+    </style>
+</head>
+<body class="bg-primary text-primary font-sans transition-colors duration-300">
+
+    <main class="min-h-screen p-4 md:p-6 max-w-[1200px] mx-auto flex flex-col gap-6">
+        
+        <header class="flex justify-between items-center border-b border-custom pb-4">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-purple-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg text-xl">RRC</div>
+                <div>
+                    <h1 class="text-2xl font-bold text-primary leading-tight">Transmisor BPSK con Filtro RRC</h1>
+                    <p class="text-xs text-secondary">Root Raised Cosine: El estándar profesional para formar pulsos</p>
+                </div>
+            </div>
+            <button id="theme-btn" class="px-4 py-2 rounded-lg bg-secondary border border-custom text-xs font-bold shadow-sm hover:bg-gray-100">
+                Tema
+            </button>
+        </header>
+
+        <section class="w-full">
+            <div class="bg-secondary rounded-xl shadow-lg border border-custom p-1">
+                <div class="flex justify-between items-center px-4 py-2 bg-primary border-b border-custom rounded-t-lg">
+                    <h3 class="font-bold text-sm text-accent">Diagrama de Bloques Actualizado</h3>
+                </div>
+                
+                <div class="gr-canvas-container" id="canvas-area">
+                    <div class="gr-wires">
+                        <svg width="1200" height="380">
+                            <path d="M 140 80 L 260 80" class="gr-wire" stroke="#3b82f6"/>
+                            <path d="M 360 80 C 500 80, 500 120, 660 120" class="gr-wire" stroke="#3b82f6"/>
+
+                            <path d="M 100 240 C 130 240, 130 240, 180 240" class="gr-wire" stroke="#f97316"/>
+                            <path d="M 100 320 C 130 320, 130 260, 180 260" class="gr-wire" stroke="#f97316"/>
+                            
+                            <path d="M 280 250 C 350 250, 400 250, 460 250" class="gr-wire" stroke="#3b82f6"/>
+                            
+                            <path d="M 590 250 C 620 250, 620 140, 660 140" class="gr-wire" stroke="#3b82f6"/>
+
+                            <path d="M 740 130 C 760 130, 760 100, 800 100" class="gr-wire" stroke="#3b82f6"/>
+                            <path d="M 740 130 C 760 130, 760 220, 800 220" class="gr-wire" stroke="#3b82f6"/>
+                        </svg>
+                    </div>
+
+                    <div class="gr-block" style="top: 30px; left: 10px; width: 130px;">
+                        <div class="gr-header">Signal Source</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key">Sample Rate:</span> 100k</div>
+                            <div class="gr-param"><span class="gr-key">Waveform:</span> Cosine</div>
+                            <div class="gr-param"><span class="gr-key">Frequency:</span> 16k</div>
+                        </div>
+                        <div class="gr-port port-out type-complex"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 180px; left: 10px; width: 90px;">
+                        <div class="gr-header">GLFSR Source</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key">Degree:</span> 10</div>
+                            <div class="gr-param"><span class="gr-key">Repeat:</span> Yes</div>
+                        </div>
+                        <div class="gr-port port-out type-float"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 300px; left: 10px; width: 90px;">
+                        <div class="gr-header">Null Source</div>
+                        <div class="gr-port port-out type-float"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 50px; left: 260px; width: 100px;">
+                        <div class="gr-header">Throttle</div>
+                        <div class="gr-body"><div class="gr-param">Rate: 100k</div></div>
+                        <div class="gr-port port-in type-complex"></div>
+                        <div class="gr-port port-out type-complex"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 220px; left: 180px; width: 100px;">
+                        <div class="gr-header">Float To Complex</div>
+                        <div class="gr-port port-in type-float" style="top: 30%;"></div>
+                        <div class="gr-port port-in type-float" style="top: 70%;"></div>
+                        <div class="gr-port port-out type-complex"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 180px; left: 460px; width: 130px; border-color: #8b5cf6; border-width: 2px;">
+                        <div class="gr-header bg-purple-100">Root Raised Cosine Filter</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key">Interpolation:</span> 100</div>
+                            <div class="gr-param"><span class="gr-key">Gain:</span> 100</div>
+                            <div class="gr-param"><span class="gr-key">Sample Rate:</span> 100k</div>
+                            <div class="gr-param"><span class="gr-key">Symbol Rate:</span> 1k</div>
+                            <div class="gr-param"><span class="gr-key">Alpha:</span> 500m</div>
+                            <div class="gr-param"><span class="gr-key">Num Taps:</span> 600</div>
+                        </div>
+                        <div class="gr-port port-in type-complex"></div>
+                        <div class="gr-port port-out type-complex"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 100px; left: 660px; width: 80px;">
+                        <div class="gr-header">Multiply</div>
+                        <div class="gr-port port-in type-complex" style="top: 25%;"></div>
+                        <div class="gr-port port-in type-complex" style="top: 75%;"></div>
+                        <div class="gr-port port-out type-complex"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 60px; left: 800px; width: 120px;">
+                        <div class="gr-header">QT GUI Time Sink</div>
+                        <div class="gr-port port-in type-complex"></div>
+                    </div>
+                    <div class="gr-block" style="top: 200px; left: 800px; width: 120px;">
+                        <div class="gr-header">QT GUI Freq Sink</div>
+                        <div class="gr-port port-in type-complex"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <div class="lg:col-span-5 flex flex-col gap-4">
+                <h3 class="font-bold text-lg text-primary border-b border-custom pb-2">Análisis del Bloque RRC</h3>
+                
+                <div class="info-card border-l-4 border-l-purple-500">
+                    <span class="info-title">Root Raised Cosine (Coseno Alzado Raíz)</span>
+                    <p class="text-justify mb-2">
+                        Sustituye al Interpolador + Low Pass Filter. Hace las dos cosas a la vez pero con una forma matemática específica diseñada para eliminar errores.
+                    </p>
+                    <div class="space-y-2 mt-2">
+                        <div class="text-[11px] bg-white p-2 border border-gray-200 rounded">
+                            <span class="font-bold text-purple-700">Interpolation: 100</span><br>
+                            Igual que antes. Toma 1 símbolo y saca 100 muestras. Si entra 1k símbolos/seg, salen 100k muestras/seg (Sample Rate).
+                        </div>
+                        <div class="text-[11px] bg-white p-2 border border-gray-200 rounded">
+                            <span class="font-bold text-purple-700">Gain: 100</span><br>
+                            Compensa la pérdida de energía al interpolar. Como repartimos la energía de 1 punto en 100, multiplicamos por 100 para mantener el nivel.
+                        </div>
+                        <div class="text-[11px] bg-white p-2 border border-gray-200 rounded">
+                            <span class="font-bold text-purple-700">Symbol Rate: 1k</span><br>
+                            La velocidad real de tus datos (1000 bits por segundo).
+                        </div>
+                        <div class="text-[11px] bg-white p-2 border border-gray-200 rounded">
+                            <span class="font-bold text-purple-700">Alpha: 500m (0.5)</span><br>
+                            El factor de "caída". Define qué tan rápido se apaga la onda.
+                            <br>• Alpha bajo: Menos ancho de banda, más "eco" (ringing).
+                            <br>• Alpha alto: Más ancho de banda, menos "eco". 0.5 es un balance ideal.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-7 flex flex-col gap-4">
+                <div class="bg-secondary p-4 rounded-xl shadow border border-custom">
+                    <h4 class="font-bold text-sm text-primary mb-2">Forma de Onda RRC (Pulse Shaping)</h4>
+                    <p class="text-[10px] text-secondary mb-2">
+                        A diferencia del filtro anterior que solo "suavizaba", el RRC crea pulsos específicos. Fíjate cómo la onda oscila antes y después del pico principal. Esa oscilación está calculada para ser 0 justo cuando llega el siguiente bit.
+                    </p>
+                    <div class="bg-primary p-2 rounded border border-custom h-64 relative">
+                        <canvas id="chart-rrc"></canvas>
+                    </div>
+                    <div class="flex justify-center gap-4 mt-2 text-[10px]">
+                        <span class="flex items-center gap-1 font-bold text-gray-500"><span class="w-2 h-2 rounded-full bg-gray-400"></span> Bits Originales</span>
+                        <span class="flex items-center gap-1 font-bold text-purple-600"><span class="w-2 h-2 rounded-full bg-purple-500"></span> Salida Filtro RRC</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const themeBtn = document.getElementById('theme-btn');
+            const themes = ['cream', 'dark'];
+            let curTheme = 0;
+            themeBtn.onclick = () => {
+                curTheme = (curTheme + 1) % themes.length;
+                document.documentElement.className = `theme-${themes[curTheme]}`;
+            };
+
+            const ctx = document.getElementById('chart-rrc').getContext('2d');
+            const chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array(200).fill(''),
+                    datasets: [
+                        {
+                            label: 'Bits',
+                            data: [],
+                            borderColor: 'transparent',
+                            backgroundColor: '#9ca3af',
+                            pointRadius: 4,
+                            pointStyle: 'rectRot',
+                            showLine: false
+                        },
+                        {
+                            label: 'RRC Output',
+                            data: [],
+                            borderColor: '#8b5cf6',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            tension: 0.4 
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, animation: false,
+                    plugins: { legend: { display: false } },
+                    scales: { 
+                        x: { display: false }, 
+                        y: { min: -1.5, max: 1.5 } 
+                    }
+                }
+            });
+
+            let time = 0;
+            const bits = [1, -1, 1, 1, -1, 1, -1, -1, 1];
+            
+            function rrcPulse(t) {
+                if (t === 0) return 1;
+                const x = Math.PI * t;
+                const sinc = Math.sin(x) / x;
+                const damp = Math.cos(0.5 * x) / (1 - (2 * 0.5 * t)**2);
+                return sinc * (isNaN(damp) ? 1 : damp);
+            }
+
+            function animate() {
+                const rrcData = [];
+                const bitPoints = [];
+
+                for(let i=0; i<200; i++) {
+                    const t_now = (time + i) / 40;
+                    
+                    let signalValue = 0;
+                    
+                    for(let b=0; b<bits.length; b++) {
+                        const bitTime = b * 2;
+                        const dt = t_now - bitTime;
+                        
+                        if (Math.abs(dt) < 4) { 
+                            signalValue += bits[b] * rrcPulse(dt);
+                        }
+
+                        if (Math.abs(dt) < 0.05 && i > 0 && i < 199) {
+                            bitPoints[i] = bits[b];
+                        } else {
+                            if (!bitPoints[i]) bitPoints[i] = null;
+                        }
+                    }
+                    rrcData.push(signalValue);
+                }
+
+                chart.data.datasets[0].data = bitPoints;
+                chart.data.datasets[1].data = rrcData;
+                chart.update('none');
+
+                time += 0.5;
+                if (time > 500) time = 0;
+                requestAnimationFrame(animate);
+            }
+            animate();
+        });
+    </script>
+</body>
+</html>

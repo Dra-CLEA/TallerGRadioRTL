@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="es" class="theme-cream">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bloque Jerárquico & Eye Diagram Custom</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root.theme-cream {
+            --color-bg-primary: #fdfaf4;
+            --color-bg-secondary: #ffffff;
+            --color-text-primary: #3a3a3a;
+            --color-text-secondary: #505050; 
+            --color-border: #e0e0e0;
+            --color-accent: #10b981;
+            --color-accent-light: #ecfdf5;
+            --color-block-header: #d1fae5;
+            --color-block-border: #059669;
+            
+            --port-float: #f97316;
+            --port-complex: #3b82f6;
+        }
+        
+        :root.theme-dark {
+            --color-bg-primary: #1e1e1e;
+            --color-bg-secondary: #2d2d2d;
+            --color-text-primary: #e0e0e0;
+            --color-text-secondary: #cccccc;
+            --color-border: #444444;
+            --color-accent: #34d399;
+            --color-accent-light: #064e3b;
+            --color-block-header: #065f46;
+            --color-block-border: #34d399;
+            --port-float: #fb923c;
+            --port-complex: #60a5fa;
+        }
+        
+        body { font-family: 'Inter', sans-serif; }
+        .font-mono { font-family: 'Fira Code', monospace; }
+
+        .bg-primary { background-color: var(--color-bg-primary); }
+        .bg-secondary { background-color: var(--color-bg-secondary); }
+        .text-primary { color: var(--color-text-primary); }
+        .text-secondary { color: var(--color-text-secondary); }
+        .border-custom { border-color: var(--color-border); }
+        .text-accent { color: var(--color-accent); }
+        
+        .gr-canvas-container {
+            position: relative; width: 100%; height: 450px;
+            background-color: var(--color-bg-primary); 
+            border: 1px solid var(--color-border);
+            border-radius: 8px; overflow: hidden;
+            user-select: none;
+            background-image: radial-gradient(var(--color-border) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        
+        .gr-block {
+            position: absolute; 
+            background-color: #f3f4f6;
+            border: 2px solid; 
+            border-radius: 4px; 
+            box-shadow: 3px 3px 0px rgba(0,0,0,0.1); 
+            z-index: 10; 
+            font-size: 11px; color: black;
+            display: flex; flex-direction: column;
+            min-width: 100px;
+        }
+        
+        .gr-header {
+            padding: 4px 8px; font-weight: 800; text-align: center;
+            border-bottom: 1px solid #9ca3af;
+            white-space: nowrap;
+        }
+        
+        .gr-body { padding: 6px; font-family: 'Fira Code', monospace; font-size: 10px; line-height: 1.4; }
+        .gr-param { margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .gr-key { font-weight: 600; color: #374151; }
+
+        .block-gray { border-color: #6b7280; }
+        .block-gray .gr-header { background-color: #e5e7eb; }
+
+        .block-options { border-color: #6b7280; border-style: dashed; }
+        .block-sink { border-color: #4b5563; min-width: 140px;}
+        .block-sink .gr-header { background-color: #d1d5db; }
+
+        .gr-port { 
+            width: 12px; height: 12px; position: absolute; 
+            border: 1px solid #1f2937; cursor: pointer; 
+            transition: transform 0.2s;
+        }
+        
+        .type-float { background-color: var(--port-float); }
+        
+        .port-out { right: -7px; top: 50%; transform: translateY(-50%); }
+        .port-in { left: -7px; top: 50%; transform: translateY(-50%); }
+
+        .gr-wires svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+        .gr-wire { fill: none; stroke-width: 2.5; opacity: 0.8; stroke-linecap: round; stroke: #333; }
+        
+        .info-card { @apply bg-secondary p-4 rounded-xl border border-custom mb-4 shadow-sm; }
+    </style>
+</head>
+<body class="bg-primary text-primary transition-colors duration-300">
+
+    <main class="min-h-screen p-4 md:p-8 max-w-[1200px] mx-auto flex flex-col gap-8">
+        
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-custom pb-6 gap-4">
+            <div class="flex items-center gap-5">
+                <div class="w-14 h-14 bg-orange-500 rounded-xl flex items-center justify-center text-white font-bold shadow-lg text-2xl">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-3xl font-extrabold text-primary tracking-tight">Jerarquía & Diagrama de Ojo</h1>
+                    <p class="text-sm text-secondary font-medium mt-1">Cómo crear tus propios bloques gráficos</p>
+                </div>
+            </div>
+            <button id="theme-btn" class="px-4 py-2 rounded-lg bg-secondary border border-custom text-xs font-bold shadow-sm hover:opacity-80 text-primary">
+                Cambiar Tema
+            </button>
+        </header>
+
+        <section class="w-full">
+            <div class="bg-secondary rounded-2xl shadow-xl border border-custom overflow-hidden">
+                <div class="px-6 py-3 bg-primary border-b border-custom flex justify-between items-center">
+                    <h3 class="font-bold text-sm text-accent">Diagrama"</h3>
+                    <span class="text-[10px] uppercase tracking-wider text-secondary font-bold">Hierarchical Block Flowgraph</span>
+                </div>
+                
+                <div class="gr-canvas-container" id="canvas-area">
+                    
+                    <div class="gr-wires">
+                        <svg width="1200" height="450">
+                            <path d="M 160 225 L 850 60" class="gr-wire" fill="none" /> 
+                            
+                            <path d="M 160 225 C 200 225, 200 100, 350 100" class="gr-wire" />
+                            <path d="M 160 225 C 200 225, 200 130, 480 130" class="gr-wire" />
+                            <path d="M 160 225 C 200 225, 200 170, 350 170" class="gr-wire" />
+                            
+                            <path d="M 160 225 C 200 225, 200 200, 480 200" class="gr-wire" />
+                            <path d="M 160 225 C 200 225, 200 240, 350 240" class="gr-wire" />
+                            <path d="M 160 225 C 200 225, 200 270, 480 270" class="gr-wire" />
+                            
+                            <path d="M 160 225 C 200 225, 200 310, 350 310" class="gr-wire" />
+                            <path d="M 160 225 C 200 225, 200 340, 480 340" class="gr-wire" />
+                            <path d="M 160 225 C 200 225, 200 380, 350 380" class="gr-wire" />
+
+                            <path d="M 450 100 L 850 95" class="gr-wire" />
+                            <path d="M 580 130 L 850 130" class="gr-wire" />
+                            <path d="M 450 170 L 850 165" class="gr-wire" />
+                            <path d="M 580 200 L 850 200" class="gr-wire" />
+                            <path d="M 450 240 L 850 235" class="gr-wire" />
+                            <path d="M 580 270 L 850 270" class="gr-wire" />
+                            <path d="M 450 310 L 850 305" class="gr-wire" />
+                            <path d="M 580 340 L 850 340" class="gr-wire" />
+                            <path d="M 450 380 L 850 375" class="gr-wire" />
+                        </svg>
+                    </div>
+
+                    <div class="gr-block block-options" style="top: 10px; left: 10px; width: 180px;">
+                        <div class="gr-header">Options</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key">ID:</span> QT GUI Eye Diagram</div>
+                            <div class="gr-param text-red-600 font-bold"><span class="gr-key">Gen Opts:</span> Hier Block (QT)</div>
+                        </div>
+                    </div>
+
+                    <div class="gr-block block-gray" style="top: 210px; left: 50px; width: 100px;">
+                        <div class="gr-header">Pad Source</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key">Label:</span> in</div>
+                        </div>
+                        <div class="gr-port port-out type-float"></div>
+                    </div>
+
+                    <div class="gr-block block-gray" style="top: 80px; left: 350px;"> <div class="gr-header">Delay</div> <div class="gr-body"><div class="gr-param">Delay: 1</div></div> <div class="gr-port port-in type-float"></div> <div class="gr-port port-out type-float"></div> </div>
+                    <div class="gr-block block-gray" style="top: 150px; left: 350px;"> <div class="gr-header">Delay</div> <div class="gr-body"><div class="gr-param">Delay: 3</div></div> <div class="gr-port port-in type-float"></div> <div class="gr-port port-out type-float"></div> </div>
+                    <div class="gr-block block-gray" style="top: 220px; left: 350px;"> <div class="gr-header">Delay</div> <div class="gr-body"><div class="gr-param">Delay: 5</div></div> <div class="gr-port port-in type-float"></div> <div class="gr-port port-out type-float"></div> </div>
+                    <div class="gr-block block-gray" style="top: 290px; left: 350px;"> <div class="gr-header">Delay</div> <div class="gr-body"><div class="gr-param">Delay: 7</div></div> <div class="gr-port port-in type-float"></div> <div class="gr-port port-out type-float"></div> </div>
+                    <div class="gr-block block-gray" style="top: 360px; left: 350px;"> <div class="gr-header">Delay</div> <div class="gr-body"><div class="gr-param">Delay: 9</div></div> <div class="gr-port port-in type-float"></div> <div class="gr-port port-out type-float"></div> </div>
+
+                    <div class="gr-block block-gray" style="top: 110px; left: 480px;"> <div class="gr-header">Delay</div> <div class="gr-body"><div class="gr-param">Delay: 2</div></div> <div class="gr-port port-in type-float"></div> <div class="gr-port port-out type-float"></div> </div>
+                    <div class="gr-block block-gray" style="top: 180px; left: 480px;"> <div class="gr-header">Delay</div> <div class="gr-body"><div class="gr-param">Delay: 4</div></div> <div class="gr-port port-in type-float"></div> <div class="gr-port port-out type-float"></div> </div>
+                    <div class="gr-block block-gray" style="top: 250px; left: 480px;"> <div class="gr-header">Delay</div> <div class="gr-body"><div class="gr-param">Delay: 6</div></div> <div class="gr-port port-in type-float"></div> <div class="gr-port port-out type-float"></div> </div>
+                    <div class="gr-block block-gray" style="top: 320px; left: 480px;"> <div class="gr-header">Delay</div> <div class="gr-body"><div class="gr-param">Delay: 8</div></div> <div class="gr-port port-in type-float"></div> <div class="gr-port port-out type-float"></div> </div>
+
+                    <div class="gr-block block-sink" style="top: 40px; left: 850px; height: 380px;">
+                        <div class="gr-header">QT GUI Time Sink</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key">Points:</span> 1.024k</div>
+                            <div class="gr-param"><span class="gr-key">Autoscale:</span> No</div>
+                            <div class="gr-param mt-2 text-xs text-gray-500 italic">10 Inputs (in0..in9)</div>
+                        </div>
+                        <div class="gr-port port-in type-float" style="top: 5%;"></div>
+                        <div class="gr-port port-in type-float" style="top: 15%;"></div>
+                        <div class="gr-port port-in type-float" style="top: 25%;"></div>
+                        <div class="gr-port port-in type-float" style="top: 35%;"></div>
+                        <div class="gr-port port-in type-float" style="top: 45%;"></div>
+                        <div class="gr-port port-in type-float" style="top: 55%;"></div>
+                        <div class="gr-port port-in type-float" style="top: 65%;"></div>
+                        <div class="gr-port port-in type-float" style="top: 75%;"></div>
+                        <div class="gr-port port-in type-float" style="top: 85%;"></div>
+                        <div class="gr-port port-in type-float" style="top: 95%;"></div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            <div class="flex flex-col gap-4">
+                <h2 class="text-xl font-bold text-primary flex items-center gap-2">
+                    <span class="bg-emerald-100 text-emerald-700 w-8 h-8 flex items-center justify-center rounded-full text-sm">1</span>
+                    ¿Qué es un Bloque Jerárquico?
+                </h2>
+                
+                <div class="info-card border-l-4 border-emerald-500" style="background-color: var(--color-accent-light);">
+                    <h4 class="font-bold text-emerald-800 mb-2">La "Muñeca Rusa" de GNU Radio</h4>
+                    <p class="text-sm text-primary mb-3 text-justify">
+                        Normalmente, un diagrama es el programa final. Pero si cambias en <strong>Options</strong> a "Hier Block", le dices a GNU Radio: 
+                        <br><em>"¡Eh! No ejecutes esto solo. Conviértelo en un bloque para usarlo DENTRO de otros programas".</em>
+                    </p>
+                    <p class="text-sm text-primary">
+                        El <strong>Pad Source</strong> actúa como el enchufe de entrada de tu nuevo bloque.
+                        <br>
+                        El <strong>QT GUI Sink</strong> dentro hace que, cuando uses este bloque, aparezca mágicamente una gráfica en tu ventana principal.
+                    </p>
+                </div>
+
+                <div class="bg-secondary p-5 rounded-xl shadow-sm border border-custom">
+                    <h4 class="font-bold text-secondary text-sm mb-4 uppercase tracking-wide">El Truco de los Lápices (Eye Diagram)</h4>
+                    <p class="text-sm text-primary mb-4 leading-relaxed">
+                        Este diagrama está construyendo un <strong>Diagrama de Ojo "Casero"</strong> usando un truco visual.
+                        Un diagrama de ojo normal recorta la señal y la superpone. Aquí lo hacen de otra forma:
+                    </p>
+                    
+                    <div class="flex flex-col gap-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold text-xs">0</div>
+                            <div class="text-xs text-primary">Señal Original (Sin retraso)</div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold text-xs">1</div>
+                            <div class="text-xs text-primary">Señal Retrasada 1 paso (Fantasma cercano)</div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold text-xs">9</div>
+                            <div class="text-xs text-primary">Señal Retrasada 9 pasos (Fantasma lejano)</div>
+                        </div>
+                    </div>
+                    
+                    <p class="text-xs mt-4 p-2 bg-gray-100 rounded text-secondary italic">
+                        Al pintar las 10 señales a la vez en la misma gráfica, el ojo humano ve todos los estados posibles de la señal juntos, creando el efecto de "ojo".
+                    </p>
+                </div>
+
+            </div>
+
+            <div class="flex flex-col gap-4">
+                <h2 class="text-xl font-bold text-primary flex items-center gap-2">
+                    <span class="bg-blue-100 text-blue-700 w-8 h-8 flex items-center justify-center rounded-full text-sm">2</span>
+                    ¿Qué nos dice el Ojo?
+                </h2>
+                
+                <div class="bg-secondary rounded-xl shadow-lg border border-custom p-4 relative">
+                    <h4 class="font-bold text-sm text-primary mb-4 text-center">Simulación: Señal Limpia vs Ruidosa</h4>
+                    
+                    <div class="h-48 w-full bg-black rounded-lg border border-gray-600 relative overflow-hidden">
+                        <canvas id="eye-canvas"></canvas>
+                        
+                        <div class="absolute top-2 left-2 text-[10px] text-green-400 font-mono hidden" id="label-good">OJO ABIERTO (BUENO)</div>
+                        <div class="absolute top-2 left-2 text-[10px] text-red-500 font-mono hidden" id="label-bad">OJO CERRADO (MALO)</div>
+                    </div>
+
+                    <div class="mt-4 flex items-center justify-between">
+                        <span class="text-xs font-bold text-secondary">Nivel de Ruido:</span>
+                        <input type="range" id="noise-slider" min="0" max="100" value="10" class="w-2/3 accent-emerald-500">
+                    </div>
+                    <p class="text-[10px] text-secondary mt-2 text-center italic">
+                        Mueve el slider. Si las líneas se cruzan en el centro, el receptor no sabrá si es un 0 o un 1.
+                    </p>
+                </div>
+                
+                <div class="info-card border-l-4 border-blue-500 mt-2">
+                    <h4 class="font-bold text-blue-800 mb-1 text-xs">¿Por qué "Ojo"?</h4>
+                    <p class="text-xs text-primary leading-relaxed">
+                        Se llama así porque la forma que queda en el centro parece un ojo humano.
+                        <br>
+                        • <strong>Párpados abiertos:</strong> Señal clara, fácil de leer.
+                        <br>
+                        • <strong>Párpados cerrados:</strong> Ruido, interferencia, errores seguros.
+                    </p>
+                </div>
+
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const themeBtn = document.getElementById('theme-btn');
+            const themes = ['cream', 'dark'];
+            let curTheme = 0;
+            themeBtn.onclick = () => {
+                curTheme = (curTheme + 1) % themes.length;
+                document.documentElement.className = `theme-${themes[curTheme]}`;
+            };
+
+            const canvas = document.getElementById('eye-canvas');
+            const ctx = canvas.getContext('2d');
+            const slider = document.getElementById('noise-slider');
+            const lblGood = document.getElementById('label-good');
+            const lblBad = document.getElementById('label-bad');
+
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+
+            let time = 0;
+
+            function draw() {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                const noise = parseInt(slider.value) / 100;
+                
+                if(noise > 0.5) {
+                    lblGood.classList.add('hidden');
+                    lblBad.classList.remove('hidden');
+                } else {
+                    lblGood.classList.remove('hidden');
+                    lblBad.classList.add('hidden');
+                }
+
+                ctx.lineWidth = 2;
+                const centerY = canvas.height / 2;
+                const amplitude = canvas.height * 0.35;
+
+                for(let i=0; i<5; i++) {
+                    ctx.beginPath();
+                    
+                    ctx.strokeStyle = `rgba(52, 211, 153, ${0.4 + Math.random()*0.4})`; 
+                    
+                    const target = Math.random() > 0.5 ? 1 : -1;
+                    const start = Math.random() > 0.5 ? 1 : -1;
+
+                    for(let x=0; x<=canvas.width; x+=5) {
+                        const t = (x / canvas.width) * Math.PI;
+                        
+                        const progress = (1 - Math.cos(t)) / 2;
+                        
+                        let yVal = start + (target - start) * progress;
+                        
+                        yVal += (Math.random() - 0.5) * noise;
+
+                        const y = centerY - (yVal * amplitude);
+
+                        if(x===0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                    }
+                    ctx.stroke();
+                }
+
+                requestAnimationFrame(draw);
+            }
+
+            draw();
+            
+            window.addEventListener('resize', () => {
+                canvas.width = canvas.parentElement.clientWidth;
+                canvas.height = canvas.parentElement.clientHeight;
+            });
+        });
+    </script>
+</body>
+</html>

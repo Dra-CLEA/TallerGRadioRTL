@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="es" class="theme-cream">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSB: Demodulación y Tuning</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root.theme-cream {
+            --color-bg-primary: #fdfaf4;
+            --color-bg-secondary: #ffffff;
+            --color-text-primary: #3a3a3a;
+            --color-text-secondary: #707070;
+            --color-border: #e0e0e0;
+            --color-accent: #8b5cf6;
+            --color-chart-grid: rgba(0, 0, 0, 0.1);
+            --color-block-info: #f3e8ff;
+        }
+        :root.theme-dark {
+            --color-bg-primary: #1e1e1e;
+            --color-bg-secondary: #2d2d2d;
+            --color-text-primary: #e0e0e0;
+            --color-text-secondary: #aaaaaa;
+            --color-border: #444444;
+            --color-accent: #a78bfa;
+            --color-chart-grid: rgba(255, 255, 255, 0.2);
+            --color-block-info: #4c1d95;
+        }
+        
+        .bg-primary { background-color: var(--color-bg-primary); }
+        .bg-secondary { background-color: var(--color-bg-secondary); }
+        .text-primary { color: var(--color-text-primary); }
+        .text-secondary { color: var(--color-text-secondary); }
+        .border-custom { border-color: var(--color-border); }
+        .text-accent { color: var(--color-accent); }
+        .bg-block-info { background-color: var(--color-block-info); }
+
+        html, body { transition: background-color 0.3s ease, color 0.3s ease; }
+
+        .gr-canvas-container {
+            position: relative; width: 100%; height: 380px; 
+            background-color: var(--color-bg-primary); 
+            border: 1px solid var(--color-border);
+            border-radius: 8px; overflow-x: auto; overflow-y: hidden;
+            font-family: sans-serif; user-select: none;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+            background-image: radial-gradient(var(--color-border) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        
+        .gr-block {
+            position: absolute; 
+            background-color: #f3f4f6; 
+            border: 2px solid #333; 
+            border-radius: 4px; padding: 5px; 
+            box-shadow: 3px 3px 0px rgba(0,0,0,0.1); 
+            z-index: 10; font-size: 10px; color: black; white-space: nowrap;
+        }
+        .gr-block:hover { transform: scale(1.02); z-index: 20; border-color: var(--color-accent); cursor: help; }
+        .theme-dark .gr-block { background-color: #e5e7eb; border-color: #666; }
+
+        .gr-title { font-weight: bold; text-align: center; border-bottom: 1px solid #999; margin-bottom: 3px; padding-bottom: 2px; font-size: 11px;}
+        .gr-param { font-family: monospace; margin-bottom: 1px; font-size: 9px; overflow: hidden; text-overflow: ellipsis; display: block; }
+        .gr-param-key { font-weight: 600; color: #4b5563; }
+        
+        .gr-port { width: 10px; height: 10px; border: 1px solid #000; position: absolute; cursor: pointer; }
+        .gr-port.complex { background-color: #3b82f6; } 
+        .gr-port.float { background-color: #f97316; }   
+        .gr-port.in { left: -6px; } .gr-port.out { right: -6px; }
+        
+        .gr-wires svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+        .gr-wire { fill: none; stroke-width: 2; opacity: 0.8; }
+        .wire-float { stroke: #f97316; }
+        .wire-complex { stroke: #3b82f6; }
+
+        .info-card { @apply bg-block-info p-3 rounded-lg text-xs text-secondary border border-custom mb-3 transition-all hover:shadow-md; }
+        .info-title { @apply font-bold text-accent mb-1 block text-sm flex items-center gap-2; }
+        .code-snippet { @apply font-mono bg-black text-green-400 p-2 rounded text-[10px] mt-1 block overflow-x-auto; }
+        
+        canvas { max-height: 200px; width: 100%; }
+        input[type=range] { height: 6px; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body class="bg-primary text-primary font-sans">
+
+    <main class="min-h-screen p-4 md:p-6 max-w-[1400px] mx-auto flex flex-col gap-6">
+        
+        <header class="flex justify-between items-center border-b border-custom pb-4">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg text-xl">RX</div>
+                <div>
+                    <h2 class="text-2xl font-bold text-primary leading-none">Demodulación: Xlating FIR Filter</h2>
+                    <span class="text-xs text-secondary font-mono">Bajar de RF (256k) a Audio (32k) y Sintonizar</span>
+                </div>
+            </div>
+            <button id="theme-toggle-btn" class="p-2 rounded-full bg-secondary border border-custom shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-transform hover:scale-105">
+                <span>🎨</span>
+            </button>
+        </header>
+
+        <section class="w-full">
+            <div class="bg-secondary rounded-xl shadow-lg border border-custom p-1">
+                <div class="flex justify-between items-center px-4 py-2 border-b border-custom bg-primary rounded-t-lg">
+                    <h3 class="font-bold text-accent flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                        Cadena de Recepción (Demodulador)
+                    </h3>
+                    <div class="text-[10px] text-secondary font-mono flex gap-4">
+                        <span class="text-red-500 font-bold">In: 256k (Ultrasonido)</span>
+                        <span>Decimation: 8</span>
+                        <span class="text-green-600 font-bold">Out: 32k (Audio)</span>
+                    </div>
+                </div>
+                
+                <div class="gr-canvas-container" id="flowgraph-area">
+                    <div class="gr-wires">
+                        <svg width="1200" height="380">
+                            <path d="M 170 140 L 300 140" class="gr-wire wire-complex"/>
+                            <path d="M 520 140 L 620 140" class="gr-wire wire-complex"/>
+                            <path d="M 740 130 C 760 130, 780 100, 820 100" class="gr-wire wire-float"/>
+                            <path d="M 740 150 C 760 150, 780 180, 820 180" class="gr-wire wire-float"/>
+                        </svg>
+                    </div>
+
+                    <div class="gr-block source" style="top: 80px; left: 20px; width: 150px;">
+                        <div class="gr-title">File Source</div>
+                        <span class="gr-param">...256k_complex2.dat</span>
+                        <span class="gr-param">Repeat: Yes</span>
+                        <span class="gr-param">Output: <span class="text-blue-600 font-bold">Complex</span></span>
+                        <div class="gr-port out complex" style="top: 50%;"></div>
+                    </div>
+
+                    <div class="gr-block filter" style="top: 60px; left: 300px; width: 220px; border-color: #8b5cf6; border-width: 2px;">
+                        <div class="gr-title text-purple-600">Freq Xlating FIR Filter</div>
+                        <span class="gr-param"><span class="gr-param-key">Decimation:</span> 8</span>
+                        <span class="gr-param"><span class="gr-param-key">Taps:</span> firdes.low_pass...</span>
+                        <span class="gr-param"><span class="gr-param-key">Center Freq:</span> <span id="lbl-tuning-block">51.5k</span></span>
+                        <span class="gr-param"><span class="gr-param-key">Sample Rate:</span> 256k</span>
+                        <div class="gr-port in complex" style="top: 50%;"></div>
+                        <div class="gr-port out complex" style="top: 50%;"></div>
+                    </div>
+
+                    <div class="gr-block math" style="top: 100px; left: 620px; width: 120px;">
+                        <div class="gr-title">Complex To Float</div>
+                        <div class="gr-port in complex" style="top: 50%;"></div>
+                        <div class="absolute right-0 top-[30%] text-[9px] font-bold text-gray-500 pr-1">Re</div>
+                        <div class="gr-port out float" style="top: 30%;"></div>
+                        <div class="absolute right-0 top-[70%] text-[9px] font-bold text-gray-500 pr-1">Im</div>
+                        <div class="gr-port out float" style="top: 70%;"></div>
+                    </div>
+
+                    <div class="gr-block source" style="top: 80px; left: 820px; width: 100px; border-style: dashed;">
+                        <div class="gr-title">Audio Sink</div>
+                        <span class="gr-param">Rate: 32k</span>
+                        <div class="gr-port in float" style="top: 50%;"></div>
+                    </div>
+                    
+                    <div class="absolute top-[220px] left-[300px] w-[220px] bg-yellow-100 text-yellow-800 text-[10px] p-2 rounded border border-yellow-300 shadow-lg">
+                        <strong>¿Qué hace este bloque?</strong><br>
+                        1. <strong>Mueve</strong> la señal de 51.5k a 0Hz.<br>
+                        2. <strong>Filtra</strong> el resto de ruido.<br>
+                        3. <strong>Decima</strong> (reduce muestras) de 256k a 32k.
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <div class="lg:col-span-5 flex flex-col gap-4">
+                
+                <div class="bg-secondary p-5 rounded-xl shadow border border-custom">
+                    <h3 class="font-bold text-primary mb-4 border-b border-custom pb-2 text-lg">El Problema de los 256k</h3>
+                    <p class="text-xs text-secondary mb-3 text-justify">
+                        Tenemos un archivo <code>.dat</code> grabado a <strong>256,000 muestras/segundo</strong>. 
+                        Nuestra tarjeta de sonido trabaja típicamente a <strong>48kHz</strong>. Además, la información que queremos escuchar está escondida en la frecuencia <strong>51.5 kHz</strong>.
+                    </p>
+                    <div class="bg-red-50 text-red-700 p-2 rounded text-xs border border-red-200 mb-2">
+                        🛑 <strong>No podemos conectarlo directo al Audio Sink:</strong>
+                        <ul class="list-disc pl-4 mt-1">
+                            <li>El Sample Rate es incompatible.</li>
+                            <li>51.5 kHz es <strong>ultrasonido</strong> (el oído humano oye hasta 20kHz).</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="bg-secondary p-5 rounded-xl shadow border border-custom">
+                    <h3 class="font-bold text-primary mb-2 border-b border-custom pb-2">El Filtro Mágico: firdes.low_pass</h3>
+                    <p class="text-xs text-secondary mb-2">
+                        Este código define cómo "recortamos" la señal para quedarnos solo con la voz.
+                    </p>
+                    <code class="code-snippet">
+firdes.low_pass(
+  1.0,        // Ganancia
+  samp_rate,  // Frecuencia de muestreo (256k)
+  3000,       // Corte (Ancho de banda de voz)
+  1000        // Transición (Suavidad del filtro)
+)
+                    </code>
+                    <ul class="text-[10px] text-secondary mt-2 space-y-1">
+                        <li><strong>samp_rate (256k):</strong> El filtro debe saber a qué velocidad vienen los datos para calcular las matemáticas.</li>
+                        <li><strong>3000 Hz:</strong> La voz humana útil está entre 300Hz y 3kHz. Todo lo que esté por encima de 3kHz se elimina.</li>
+                        <li><strong>1000 Hz:</strong> La "pendiente" de caída del filtro.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="lg:col-span-7 flex flex-col gap-4">
+                
+                <div class="bg-secondary p-4 rounded-xl shadow border border-custom">
+                    <div class="flex justify-between items-end mb-2">
+                         <label class="text-sm font-bold text-primary">Sintonizador (Tuning)</label>
+                         <span class="text-xs font-mono bg-primary px-2 py-1 rounded border border-custom">
+                             Center Freq: <span id="val-tuning" class="text-accent font-bold">51500</span> Hz
+                         </span>
+                    </div>
+                    
+                    <input type="range" id="slider-tuning" min="48000" max="55000" step="100" value="51500" class="w-full accent-purple-500 mb-1">
+                    <div class="flex justify-between text-[9px] text-secondary font-mono">
+                        <span>48k</span>
+                        <span>51.5k (Objetivo)</span>
+                        <span>55k</span>
+                    </div>
+
+                    <p class="text-xs text-secondary mt-3 p-2 bg-block-info rounded">
+                        <strong>Mueve el slider:</strong> El filtro "Xlating" multiplica la señal por una onda inversa para arrastrar la frecuencia seleccionada hacia el centro (0 Hz). Solo cuando esté en 0 Hz podremos escucharla correctamente.
+                    </p>
+                </div>
+
+                <div class="bg-secondary p-4 rounded-xl shadow border border-custom flex-grow">
+                    <h3 class="font-bold text-primary text-sm mb-2">Espectro: Antes y Después del Xlating</h3>
+                    <div class="bg-primary p-2 rounded border border-custom relative h-60">
+                        <canvas id="spectrum-chart"></canvas>
+                        
+                        <div id="filter-overlay" class="absolute top-0 bottom-8 border-l-2 border-r-2 border-green-500 bg-green-500 bg-opacity-10 pointer-events-none transition-all duration-100 flex items-center justify-center" style="left: 45%; width: 10%;">
+                            <span class="text-[9px] text-green-800 font-bold -rotate-90 whitespace-nowrap">Filtro Pasa Bajo (3k)</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const els = {
+                sliderTuning: document.getElementById('slider-tuning'),
+                valTuning: document.getElementById('val-tuning'),
+                lblBlock: document.getElementById('lbl-tuning-block'),
+                themeBtn: document.getElementById('theme-toggle-btn'),
+                filterOverlay: document.getElementById('filter-overlay')
+            };
+
+            const themes = ['cream', 'dark'];
+            let currentThemeIdx = 0;
+            function updateTheme() {
+                const theme = themes[currentThemeIdx];
+                document.documentElement.className = `theme-${theme}`;
+                
+                const style = getComputedStyle(document.documentElement);
+                const gridColor = style.getPropertyValue('--color-chart-grid').trim();
+                if(window.chartSpectrum) {
+                    window.chartSpectrum.options.scales.x.grid.color = gridColor;
+                    window.chartSpectrum.options.scales.y.grid.color = gridColor;
+                    window.chartSpectrum.update('none');
+                }
+            }
+            els.themeBtn.addEventListener('click', () => {
+                currentThemeIdx = (currentThemeIdx + 1) % themes.length;
+                updateTheme();
+            });
+
+            const ctxSpec = document.getElementById('spectrum-chart').getContext('2d');
+            window.chartSpectrum = new Chart(ctxSpec, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 150}, (_, i) => 45000 + i * 100), 
+                    datasets: [
+                        {
+                            label: 'Señal en .dat (LSB)',
+                            data: [],
+                            borderColor: '#ef4444',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            fill: true,
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)'
+                        },
+                        {
+                            label: 'Lo que oyes (Baseband)',
+                            data: [],
+                            borderColor: '#22c55e',
+                            borderWidth: 2,
+                            borderDash: [5,5],
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, animation: false,
+                    plugins: { legend: { display: true, position: 'top', labels: { font: {size: 10} } } },
+                    scales: { 
+                        x: { 
+                            title: { display: true, text: 'Frecuencia (Hz)' },
+                            ticks: { callback: function(val, index) { return index % 20 === 0 ? this.getLabelForValue(val)/1000 + 'k' : ''; } }
+                        }, 
+                        y: { display: false, min: 0, max: 1.2 } 
+                    }
+                }
+            });
+
+            const signalFreq = 51500;
+            
+            function animate() {
+                const tuningFreq = parseInt(els.sliderTuning.value);
+                
+                els.valTuning.textContent = tuningFreq;
+                els.lblBlock.textContent = (tuningFreq/1000).toFixed(1) + 'k';
+
+                const labels = window.chartSpectrum.data.labels;
+                const originalData = labels.map(f => {
+                    const diff = f - signalFreq;
+                    return Math.exp(-(diff*diff)/(2 * 500 * 500));
+                });
+
+                
+                const percent = ((tuningFreq - 45000) / 15000) * 100;
+                
+                const clampedPercent = Math.max(0, Math.min(100, percent));
+                els.filterOverlay.style.left = `calc(${clampedPercent}% - 5%)`;
+
+                const tuningError = Math.abs(tuningFreq - signalFreq);
+                const signalStrength = Math.max(0, 1 - (tuningError / 2000));
+                
+                const filteredData = originalData.map(v => v * signalStrength);
+
+                window.chartSpectrum.data.datasets[0].data = originalData;
+                window.chartSpectrum.data.datasets[1].data = filteredData;
+                window.chartSpectrum.update('none');
+
+                requestAnimationFrame(animate);
+            }
+
+            updateTheme();
+            animate();
+        });
+    </script>
+</body>
+</html>

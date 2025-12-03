@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="es" class="theme-cream">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FSK RX: Xlating FIR Filter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root.theme-cream {
+            --color-bg-primary: #fdfaf4;
+            --color-bg-secondary: #ffffff;
+            --color-text-primary: #3a3a3a;
+            --color-text-secondary: #505050; 
+            --color-border: #e0e0e0;
+            --color-accent: #10b981; 
+            --color-accent-light: #ecfdf5;
+            
+            --port-float: #f97316;
+            --port-complex: #3b82f6;
+        }
+        
+        body { font-family: 'Inter', sans-serif; }
+        .font-mono { font-family: 'Fira Code', monospace; }
+
+        .bg-primary { background-color: var(--color-bg-primary); }
+        .bg-secondary { background-color: var(--color-bg-secondary); }
+        .text-primary { color: var(--color-text-primary); }
+        .text-secondary { color: var(--color-text-secondary); }
+        .border-custom { border-color: var(--color-border); }
+        
+        .gr-canvas-container {
+            position: relative; width: 100%; height: 250px; 
+            background-color: var(--color-bg-primary); 
+            border: 1px solid var(--color-border);
+            border-radius: 8px; overflow: hidden;
+            user-select: none;
+            background-image: radial-gradient(var(--color-border) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        
+        .gr-block {
+            position: absolute; 
+            background-color: #f3f4f6;
+            border: 2px solid; 
+            border-radius: 4px; 
+            box-shadow: 3px 3px 0px rgba(0,0,0,0.1); 
+            z-index: 10; 
+            font-size: 10px; color: black;
+            display: flex; flex-direction: column;
+            min-width: 130px;
+        }
+        
+        .gr-header {
+            padding: 3px 6px; font-weight: 800; text-align: center;
+            border-bottom: 1px solid #9ca3af;
+            white-space: nowrap;
+            font-size: 10px;
+        }
+        
+        .gr-body { padding: 4px; font-family: 'Fira Code', monospace; font-size: 9px; line-height: 1.4; }
+        .gr-param { margin-bottom: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .gr-key { font-weight: 600; color: #374151; }
+
+        .block-filter { border-color: #7e22ce; }
+        .block-filter .gr-header { background-color: #d8b4fe; color: #581c87; }
+
+        .block-gray { border-color: #4b5563; }
+        .block-gray .gr-header { background-color: #d1d5db; }
+
+        .gr-port { 
+            width: 10px; height: 10px; position: absolute; 
+            border: 1px solid #1f2937; cursor: pointer; 
+        }
+        .type-complex { background-color: var(--port-complex); }
+        .type-float { background-color: var(--port-float); }
+        
+        .port-out { right: -6px; top: 50%; transform: translateY(-50%); }
+        .port-in { left: -6px; top: 50%; transform: translateY(-50%); }
+
+        .gr-wires svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+        .gr-wire { fill: none; stroke: #333; stroke-width: 2.5; opacity: 0.8; stroke-linecap: round; }
+        
+        .info-card { @apply bg-secondary p-4 rounded-xl border border-custom mb-4 shadow-sm; }
+    </style>
+</head>
+<body class="bg-primary text-primary transition-colors duration-300">
+
+    <main class="min-h-screen p-4 md:p-8 max-w-[1200px] mx-auto flex flex-col gap-8">
+        
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-custom pb-6 gap-4">
+            <div class="flex items-center gap-5">
+                <div class="w-14 h-14 bg-purple-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg text-2xl">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-3xl font-extrabold text-primary tracking-tight">Rx Parte 1: El Filtro Traductor</h1>
+                    <p class="text-sm text-secondary font-medium mt-1">Frequency Xlating FIR Filter</p>
+                </div>
+            </div>
+        </header>
+
+        <section class="w-full">
+            <div class="bg-secondary rounded-2xl shadow-xl border border-custom overflow-hidden">
+                <div class="px-6 py-3 bg-primary border-b border-custom flex justify-between items-center">
+                    <h3 class="font-bold text-sm text-purple-700">Tu Bloque (Image 6404c3)</h3>
+                    <span class="text-[10px] uppercase tracking-wider text-secondary font-bold">Input Stage</span>
+                </div>
+                
+                <div class="gr-canvas-container overflow-x-auto" id="canvas-area">
+                    <div class="gr-wires" style="width: 800px;">
+                        <svg width="800" height="250">
+                            <path d="M 200 120 L 320 120" class="gr-wire" style="stroke: #f97316;" />
+                            <path d="M 470 120 L 600 120" class="gr-wire" style="stroke: #3b82f6;" />
+                        </svg>
+                    </div>
+
+                    <div class="gr-block block-gray" style="top: 95px; left: 80px;">
+                        <div class="gr-header">Virtual Source</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key">ID:</span> fsk_out</div>
+                        </div>
+                        <div class="gr-port port-out type-float"></div>
+                    </div>
+
+                    <div class="gr-block block-filter" style="top: 70px; left: 320px; width: 170px;">
+                        <div class="gr-header text-[9px]">Frequency Xlating FIR Filter</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key">Decimation:</span> 1</div>
+                            <div class="gr-param"><span class="gr-key">Taps:</span> firdes.low_pass...</div>
+                            <div class="gr-param"><span class="gr-key">Center Freq:</span> 2.21k</div>
+                            <div class="gr-param"><span class="gr-key">Sample Rate:</span> 48k</div>
+                        </div>
+                        <div class="gr-port port-in type-float"></div>
+                        <div class="gr-port port-out type-complex"></div>
+                    </div>
+
+                    <div class="gr-block block-gray" style="top: 105px; left: 600px; width: 80px; opacity: 0.5;">
+                        <div class="gr-header">Squelch...</div>
+                        <div class="gr-port port-in type-complex"></div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            <div class="flex flex-col gap-4">
+                <h2 class="text-xl font-bold text-primary flex items-center gap-2">
+                    <span class="bg-purple-100 text-purple-700 w-8 h-8 flex items-center justify-center rounded-full text-sm">1</span>
+                    Desglosando los Datos
+                </h2>
+                
+                <div class="info-card border-l-4 border-l-purple-500">
+                    <h4 class="font-bold text-sm text-purple-700 mb-2">Center Frequency: 2.21k</h4>
+                    <p class="text-xs text-secondary text-justify mb-2">
+                        Este es el dato más importante. Es el <strong>objetivo</strong>.
+                        <br>Sabemos que nuestros tonos son 2125Hz (0) y 2295Hz (1).
+                    </p>
+                    <div class="bg-purple-50 p-2 rounded text-center font-mono text-xs font-bold text-purple-800 border border-purple-200">
+                        (2125 + 2295) / 2 = 2210 Hz = 2.21k
+                    </div>
+                    <p class="text-xs text-secondary mt-2">
+                        El bloque "agarra" el espectro en 2.21k y lo arrastra hasta <strong>0 Hz</strong> (Banda Base). Así, el 0 queda un poco a la izquierda (-85Hz) y el 1 un poco a la derecha (+85Hz).
+                    </p>
+                </div>
+
+                <div class="info-card border-l-4 border-l-blue-500">
+                    <h4 class="font-bold text-sm text-blue-700 mb-2">Taps: firdes.low_pass(...)</h4>
+                    <p class="text-xs text-secondary mb-2">
+                        Define la forma del filtro (el "colador"). Los números mágicos de tu imagen:
+                    </p>
+                    <ul class="list-disc pl-4 text-xs text-secondary space-y-1">
+                        <li><strong>1.0:</strong> Ganancia (No cambiar volumen).</li>
+                        <li><strong>samp_rate:</strong> 48k (Velocidad del sistema).</li>
+                        <li><strong>1000:</strong> Corte (Cutoff). Todo lo que esté a más de 1000Hz del centro (0Hz) se elimina. Es como cerrar la ventana al ruido.</li>
+                        <li><strong>400:</strong> Transición. Qué tan "afilado" es el corte. Un número pequeño sería un corte muy brusco (requiere más CPU).</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-4">
+                <h2 class="text-xl font-bold text-primary flex items-center gap-2">
+                    <span class="bg-orange-100 text-orange-700 w-8 h-8 flex items-center justify-center rounded-full text-sm">2</span>
+                    Simulador: Moviendo el Espectro
+                </h2>
+                
+                <div class="bg-secondary rounded-xl shadow-lg border border-custom p-6 relative">
+                    <h4 class="font-bold text-sm text-primary mb-4 text-center">Efecto "Xlating" (Traslación)</h4>
+
+                    <div class="relative h-40 w-full bg-gray-900 rounded-lg border border-gray-600 overflow-hidden">
+                        <div class="absolute left-1/2 h-full w-[1px] bg-gray-600 top-0"></div>
+                        <div class="absolute left-[80%] h-full w-[1px] bg-gray-700 top-0 border-dashed"></div>
+
+                        <div class="absolute bottom-1 left-1/2 text-[9px] text-gray-400 transform -translate-x-1/2">0 Hz</div>
+                        <div class="absolute bottom-1 left-[80%] text-[9px] text-gray-400 transform -translate-x-1/2">2.21k</div>
+
+                        <div class="absolute top-0 left-1/2 transform -translate-x-1/2 h-full w-[30%] bg-blue-500 opacity-20 border-x border-blue-400"></div>
+                        <div class="absolute top-2 left-1/2 text-[9px] text-blue-300 transform -translate-x-1/2">Filtro (+-1k)</div>
+
+                        <div id="signal-blob" class="absolute bottom-4 w-6 h-20 bg-orange-500 rounded-full blur-sm opacity-80 transition-all duration-1000 ease-in-out shadow-[0_0_15px_rgba(249,115,22,0.8)]"></div>
+                    </div>
+
+                    <div class="flex justify-center mt-4 gap-4">
+                        <button id="btn-before" class="px-3 py-1 bg-gray-200 rounded text-xs font-bold hover:bg-gray-300">Antes (Entrada)</button>
+                        <button id="btn-after" class="px-3 py-1 bg-purple-600 text-white rounded text-xs font-bold hover:bg-purple-700">Después (Salida)</button>
+                    </div>
+
+                    <p id="sim-desc" class="text-xs text-center mt-3 text-secondary italic">
+                        Pulsa "Antes" para ver la señal en 2.21k (donde la recibimos).
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const signal = document.getElementById('signal-blob');
+            const btnBefore = document.getElementById('btn-before');
+            const btnAfter = document.getElementById('btn-after');
+            const desc = document.getElementById('sim-desc');
+
+            const posBefore = "80%";
+            const posAfter = "50%";
+
+            signal.style.left = posBefore;
+            signal.style.transform = "translateX(-50%)";
+
+            btnBefore.onclick = () => {
+                signal.style.left = posBefore;
+                signal.style.backgroundColor = "#f97316";
+                desc.innerText = "La señal está lejos del centro, en 2.21k. Es difícil trabajar con ella así.";
+            };
+
+            btnAfter.onclick = () => {
+                signal.style.left = posAfter;
+                signal.style.backgroundColor = "#3b82f6";
+                desc.innerHTML = "¡Magia! El bloque ha movido la señal al centro (0Hz) y la ha convertido a <strong>Compleja</strong>.";
+            };
+        });
+    </script>
+</body>
+</html>

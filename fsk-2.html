@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="es" class="theme-cream">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FSK Parte 2: Matemáticas VCO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root.theme-cream {
+            --color-bg-primary: #fdfaf4;
+            --color-bg-secondary: #ffffff;
+            --color-text-primary: #3a3a3a;
+            --color-text-secondary: #505050; 
+            --color-border: #e0e0e0;
+            --color-accent: #10b981; 
+            --color-accent-light: #ecfdf5;
+            
+            --port-float: #f97316;
+        }
+        
+        :root.theme-dark {
+            --color-bg-primary: #1e1e1e;
+            --color-bg-secondary: #2d2d2d;
+            --color-text-primary: #e0e0e0;
+            --color-text-secondary: #cccccc;
+            --color-border: #444444;
+            --port-float: #fb923c;
+        }
+        
+        body { font-family: 'Inter', sans-serif; }
+        .font-mono { font-family: 'Fira Code', monospace; }
+
+        .bg-primary { background-color: var(--color-bg-primary); }
+        .bg-secondary { background-color: var(--color-bg-secondary); }
+        .text-primary { color: var(--color-text-primary); }
+        .text-secondary { color: var(--color-text-secondary); }
+        .border-custom { border-color: var(--color-border); }
+        
+        .gr-canvas-container {
+            position: relative; width: 100%; height: 200px; 
+            background-color: var(--color-bg-primary); 
+            border: 1px solid var(--color-border);
+            border-radius: 8px; overflow: hidden;
+            user-select: none;
+            background-image: radial-gradient(var(--color-border) 1px, transparent 1px);
+            background-size: 20px 20px;
+            overflow-x: auto;
+        }
+        
+        .gr-block {
+            position: absolute; 
+            background-color: #f3f4f6;
+            border: 2px solid; 
+            border-radius: 4px; 
+            box-shadow: 3px 3px 0px rgba(0,0,0,0.1); 
+            z-index: 10; 
+            font-size: 10px; color: black;
+            display: flex; flex-direction: column;
+            min-width: 110px;
+        }
+        
+        .gr-header {
+            padding: 3px 6px; font-weight: 800; text-align: center;
+            border-bottom: 1px solid #9ca3af;
+            white-space: nowrap;
+            font-size: 10px;
+        }
+        
+        .gr-body { padding: 4px; font-family: 'Fira Code', monospace; font-size: 9px; line-height: 1.4; }
+        .gr-param { margin-bottom: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .gr-key { font-weight: 600; color: #374151; }
+
+        .block-math { border-color: #0369a1; }
+        .block-math .gr-header { background-color: #bae6fd; color: #0c4a6e; }
+        
+        .block-vco { border-color: #be185d; }
+        .block-vco .gr-header { background-color: #fbcfe8; color: #831843; }
+
+        .block-gray { border-color: #4b5563; }
+        .block-gray .gr-header { background-color: #d1d5db; }
+
+        .gr-port { 
+            width: 10px; height: 10px; position: absolute; 
+            border: 1px solid #1f2937; cursor: pointer; 
+            background-color: var(--port-float);
+        }
+        
+        .port-out { right: -6px; top: 50%; transform: translateY(-50%); }
+        .port-in { left: -6px; top: 50%; transform: translateY(-50%); }
+
+        .gr-wires svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+        .gr-wire { fill: none; stroke: #333; stroke-width: 2.5; opacity: 0.8; stroke-linecap: round; }
+        
+        .info-card { @apply bg-secondary p-4 rounded-xl border border-custom mb-4 shadow-sm; }
+    </style>
+</head>
+<body class="bg-primary text-primary transition-colors duration-300">
+
+    <main class="min-h-screen p-4 md:p-8 max-w-[1200px] mx-auto flex flex-col gap-8">
+        
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-custom pb-6 gap-4">
+            <div class="flex items-center gap-5">
+                <div class="w-14 h-14 bg-sky-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg text-2xl">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-3xl font-extrabold text-primary tracking-tight">FSK Parte 2: Matemáticas VCO</h1>
+                    <p class="text-sm text-secondary font-medium mt-1">Cómo convertir ceros y unos en voltajes de control</p>
+                </div>
+            </div>
+            <button id="theme-btn" class="px-4 py-2 rounded-lg bg-secondary border border-custom text-xs font-bold shadow-sm hover:opacity-80 text-primary">
+                Cambiar Tema
+            </button>
+        </header>
+
+        <section class="w-full">
+            <div class="bg-secondary rounded-2xl shadow-xl border border-custom overflow-hidden">
+                <div class="px-6 py-3 bg-primary border-b border-custom flex justify-between items-center">
+                    <h3 class="font-bold text-sm text-sky-600">Tu Flujo (Image 646abd)</h3>
+                    <span class="text-[10px] uppercase tracking-wider text-secondary font-bold">Modulation Chain</span>
+                </div>
+                
+                <div class="gr-canvas-container overflow-x-auto" id="canvas-area">
+                    <div class="gr-wires" style="width: 1000px;">
+                        <svg width="1000" height="200">
+                            <path d="M 130 100 L 190 100" class="gr-wire" />
+                            <path d="M 320 100 L 380 100" class="gr-wire" />
+                            <path d="M 500 100 L 560 100" class="gr-wire" />
+                            <path d="M 720 100 L 800 100" class="gr-wire" />
+                        </svg>
+                    </div>
+
+                    <div class="gr-block block-gray" style="top: 70px; left: 20px;">
+                        <div class="gr-header">Virtual Source</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key">ID:</span> xmt_data</div>
+                        </div>
+                        <div class="gr-port port-out"></div>
+                    </div>
+
+                    <div class="gr-block block-math" style="top: 70px; left: 190px; width: 130px;">
+                        <div class="gr-header">Multiply Const</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key">Constant:</span> 68m</div>
+                            <div class="gr-param text-[8px] text-gray-500 italic">(0.068)</div>
+                        </div>
+                        <div class="gr-port port-in"></div>
+                        <div class="gr-port port-out"></div>
+                    </div>
+
+                    <div class="gr-block block-math" style="top: 70px; left: 380px; width: 120px;">
+                        <div class="gr-header">Add Const</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key">Constant:</span> 850m</div>
+                            <div class="gr-param text-[8px] text-gray-500 italic">(0.850)</div>
+                        </div>
+                        <div class="gr-port port-in"></div>
+                        <div class="gr-port port-out"></div>
+                    </div>
+
+                    <div class="gr-block block-vco" style="top: 50px; left: 560px; width: 160px;">
+                        <div class="gr-header">VCO (Complex)</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key">Sensitivity:</span> 15.708k</div>
+                            <div class="gr-param"><span class="gr-key">Amplitude:</span> 500m</div>
+                        </div>
+                        <div class="gr-port port-in"></div>
+                        <div class="gr-port port-out"></div>
+                    </div>
+
+                    <div class="gr-block block-gray" style="top: 70px; left: 800px;">
+                        <div class="gr-header">Virtual Sink</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key">ID:</span> fsk_out</div>
+                        </div>
+                        <div class="gr-port port-in"></div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            <div class="flex flex-col gap-4">
+                <h2 class="text-xl font-bold text-primary flex items-center gap-2">
+                    <span class="bg-sky-100 text-sky-700 w-8 h-8 flex items-center justify-center rounded-full text-sm">1</span>
+                    ¿De dónde salen estos números?
+                </h2>
+                
+                <div class="bg-white p-4 rounded-xl border-l-4 border-l-pink-500 shadow-sm">
+                    <h4 class="font-bold text-sm text-pink-700 mb-2">El Secreto del VCO</h4>
+                    <p class="text-xs text-gray-600 mb-2">
+                        El VCO (Voltage Controlled Oscillator) convierte voltaje en frecuencia. La fórmula que usa internamente es:
+                    </p>
+                    <div class="bg-gray-100 p-2 rounded text-center font-mono text-xs font-bold text-gray-700 mb-2">
+                        Freq_Salida = Voltaje_Entrada × (Sensibilidad / 2π)
+                    </div>
+                    <p class="text-xs text-gray-600">
+                        Si Sensibilidad = 15.708k (aprox 5000 × π), entonces:
+                        <br>
+                        <strong>Constante K = 15708 / 6.28 ≈ 2500 Hz por Voltio.</strong>
+                    </p>
+                    <p class="text-xs text-gray-600 mt-2 italic border-t pt-2">
+                        Significa: Por cada 1 Voltio que entra, el VCO emite 2500 Hz.
+                    </p>
+                </div>
+
+                <div class="space-y-3">
+                    <div class="info-card border-l-4 border-l-sky-500 flex gap-3">
+                        <div class="font-bold text-lg text-sky-600">A</div>
+                        <div>
+                            <h4 class="font-bold text-sm text-primary">Add Const: 0.850 (La Base)</h4>
+                            <p class="text-xs text-secondary text-justify">
+                                Queremos una frecuencia baja (Space) de <strong>2125 Hz</strong>.
+                                <br>
+                                Usando la constante K=2500:
+                                <br>
+                                Voltaje = 2125 / 2500 = <strong>0.850 V</strong>
+                                <br>
+                                Por eso sumamos 0.850. Si entra un 0, sale 0.850V.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="info-card border-l-4 border-l-sky-500 flex gap-3">
+                        <div class="font-bold text-lg text-sky-600">B</div>
+                        <div>
+                            <h4 class="font-bold text-sm text-primary">Multiply Const: 0.068 (El Salto)</h4>
+                            <p class="text-xs text-secondary text-justify">
+                                Queremos una frecuencia alta (Mark) de <strong>2295 Hz</strong>.
+                                <br>
+                                Voltaje = 2295 / 2500 = <strong>0.918 V</strong>
+                                <br>
+                                Diferencia: 0.918 - 0.850 = <strong>0.068 V</strong>
+                                <br>
+                                Por eso multiplicamos el 1 por 0.068.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-4">
+                <h2 class="text-xl font-bold text-primary flex items-center gap-2">
+                    <span class="bg-orange-100 text-orange-700 w-8 h-8 flex items-center justify-center rounded-full text-sm">2</span>
+                    Simulador: Sigue el Voltaje
+                </h2>
+                
+                <div class="bg-secondary rounded-xl shadow-lg border border-custom p-6 relative">
+                    
+                    <div class="flex items-center justify-between mb-6">
+                        <span class="text-sm font-bold text-primary">Entrada Virtual Source:</span>
+                        <div class="flex bg-gray-200 rounded p-1 gap-2">
+                            <button id="btn-0" class="px-3 py-1 bg-white shadow rounded text-xs font-bold border border-gray-300">Enviar '0'</button>
+                            <button id="btn-1" class="px-3 py-1 hover:bg-white rounded text-xs text-gray-500">Enviar '1'</button>
+                        </div>
+                    </div>
+
+                    <div class="relative pl-4 border-l-2 border-dashed border-gray-300 space-y-6">
+                        
+                        <div class="relative">
+                            <div class="absolute -left-[25px] w-4 h-4 bg-sky-500 rounded-full border-2 border-white shadow-sm"></div>
+                            <h5 class="text-xs font-bold text-sky-700">1. Multiplicación (x 0.068)</h5>
+                            <div class="flex items-center gap-2 mt-1">
+                                <div id="val-input" class="font-mono text-sm font-bold">0</div>
+                                <span class="text-xs text-gray-400">× 0.068 =</span>
+                                <div id="val-mult" class="bg-sky-100 px-2 py-1 rounded font-mono text-sm font-bold text-sky-800">0.000</div>
+                            </div>
+                        </div>
+
+                        <div class="relative">
+                            <div class="absolute -left-[25px] w-4 h-4 bg-sky-500 rounded-full border-2 border-white shadow-sm"></div>
+                            <h5 class="text-xs font-bold text-sky-700">2. Suma (+ 0.850)</h5>
+                            <div class="flex items-center gap-2 mt-1">
+                                <div id="val-mult-copy" class="font-mono text-sm text-gray-500">0.000</div>
+                                <span class="text-xs text-gray-400">+ 0.850 =</span>
+                                <div id="val-add" class="bg-sky-100 px-2 py-1 rounded font-mono text-sm font-bold text-sky-800 border-2 border-sky-500">0.850 V</div>
+                                <span class="text-[10px] text-red-500 font-bold ml-2">← VOLTAJE FINAL</span>
+                            </div>
+                        </div>
+
+                        <div class="relative">
+                            <div class="absolute -left-[25px] w-4 h-4 bg-pink-500 rounded-full border-2 border-white shadow-sm animate-pulse"></div>
+                            <h5 class="text-xs font-bold text-pink-700">3. VCO (x 2500 Hz)</h5>
+                            <div class="flex items-center gap-2 mt-1">
+                                <div id="val-add-copy" class="font-mono text-sm text-gray-500">0.850</div>
+                                <span class="text-xs text-gray-400">× 2500 =</span>
+                                <div id="val-freq" class="bg-pink-100 px-2 py-1 rounded font-mono text-lg font-bold text-pink-800 shadow-md">2125 Hz</div>
+                            </div>
+                            <p id="desc-freq" class="text-[10px] text-gray-500 mt-1 italic">Tono "Space" (Baja frecuencia)</p>
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const themeBtn = document.getElementById('theme-btn');
+            const themes = ['cream', 'dark'];
+            let curTheme = 0;
+            themeBtn.onclick = () => {
+                curTheme = (curTheme + 1) % themes.length;
+                document.documentElement.className = `theme-${themes[curTheme]}`;
+            };
+
+            const btn0 = document.getElementById('btn-0');
+            const btn1 = document.getElementById('btn-1');
+            
+            const valInput = document.getElementById('val-input');
+            const valMult = document.getElementById('val-mult');
+            const valMultCopy = document.getElementById('val-mult-copy');
+            const valAdd = document.getElementById('val-add');
+            const valAddCopy = document.getElementById('val-add-copy');
+            const valFreq = document.getElementById('val-freq');
+            const descFreq = document.getElementById('desc-freq');
+
+            function updateSim(val) {
+                if(val === 0) {
+                    btn0.className = "px-3 py-1 bg-white shadow rounded text-xs font-bold border border-gray-300";
+                    btn1.className = "px-3 py-1 hover:bg-white rounded text-xs text-gray-500";
+                    btn0.innerText = "Enviando '0'";
+                    btn1.innerText = "Enviar '1'";
+                } else {
+                    btn1.className = "px-3 py-1 bg-white shadow rounded text-xs font-bold border border-gray-300";
+                    btn0.className = "px-3 py-1 hover:bg-white rounded text-xs text-gray-500";
+                    btn1.innerText = "Enviando '1'";
+                    btn0.innerText = "Enviar '0'";
+                }
+
+                const multRes = val * 0.068;
+                const addRes = multRes + 0.850;
+                const freqRes = addRes * 2500;
+
+                valInput.innerText = val;
+                valMult.innerText = multRes.toFixed(3);
+                valMultCopy.innerText = multRes.toFixed(3);
+                valAdd.innerText = addRes.toFixed(3) + " V";
+                valAddCopy.innerText = addRes.toFixed(3);
+                valFreq.innerText = Math.round(freqRes) + " Hz";
+
+                if(val === 0) {
+                    descFreq.innerText = 'Tono "Space" (Baja frecuencia 2125)';
+                    descFreq.className = "text-[10px] text-gray-500 mt-1 italic";
+                } else {
+                    descFreq.innerText = 'Tono "Mark" (Alta frecuencia 2295)';
+                    descFreq.className = "text-[10px] text-pink-600 mt-1 font-bold";
+                }
+            }
+
+            btn0.onclick = () => updateSim(0);
+            btn1.onclick = () => updateSim(1);
+        });
+    </script>
+</body>
+</html>

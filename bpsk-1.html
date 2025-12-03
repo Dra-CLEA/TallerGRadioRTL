@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="es" class="theme-cream">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transmisor BPSK</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root.theme-cream {
+            --color-bg-primary: #fdfaf4;
+            --color-bg-secondary: #ffffff;
+            --color-text-primary: #3a3a3a;
+            --color-text-secondary: #505050;
+            --color-border: #e0e0e0;
+            --color-accent: #3b82f6; 
+            --color-block-info: #eef2ff;
+        }
+        :root.theme-dark {
+            --color-bg-primary: #1e1e1e;
+            --color-bg-secondary: #2d2d2d;
+            --color-text-primary: #e0e0e0;
+            --color-text-secondary: #cccccc;
+            --color-border: #444444;
+            --color-accent: #60a5fa;
+            --color-block-info: #374151;
+        }
+        
+        .bg-primary { background-color: var(--color-bg-primary); }
+        .bg-secondary { background-color: var(--color-bg-secondary); }
+        .text-primary { color: var(--color-text-primary); }
+        .text-secondary { color: var(--color-text-secondary); }
+        .border-custom { border-color: var(--color-border); }
+        
+        .gr-canvas-container {
+            position: relative; width: 100%; height: 500px; 
+            background-color: var(--color-bg-primary); 
+            border: 1px solid var(--color-border);
+            border-radius: 8px; overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            user-select: none;
+            background-image: radial-gradient(var(--color-border) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        
+        .gr-block {
+            position: absolute; 
+            background-color: #f3f4f6;
+            border: 2px solid #333; 
+            border-radius: 2px; 
+            box-shadow: 3px 3px 5px rgba(0,0,0,0.1); 
+            z-index: 10; 
+            font-size: 10px; color: black;
+            display: flex; flex-direction: column;
+            min-width: 90px;
+        }
+        
+        .gr-header {
+            background-color: #e5e7eb; border-bottom: 1px solid #999;
+            padding: 3px 5px; font-weight: bold; text-align: center;
+        }
+        .gr-body { padding: 4px; font-family: monospace; font-size: 9px; line-height: 1.2; }
+        .gr-key { font-weight: 600; color: #374151; }
+
+        .gr-port { width: 10px; height: 10px; position: absolute; border: 1px solid #000; }
+        .type-complex { background-color: #3b82f6; } 
+        .type-float { background-color: #f97316; }   
+        .port-out { right: -6px; top: 50%; transform: translateY(-50%); }
+        .port-in { left: -6px; top: 50%; transform: translateY(-50%); }
+
+        .gr-wires svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+        .gr-wire { fill: none; stroke-width: 2; opacity: 0.8; }
+        
+        .info-card { @apply bg-block-info p-3 rounded-lg text-xs text-secondary border border-custom mb-3 transition-all hover:shadow-md; }
+        .step-number { @apply inline-block w-5 h-5 bg-blue-600 text-white rounded-full text-center text-[10px] leading-5 font-bold mr-2; }
+        
+        .math-box { @apply font-mono bg-white border border-gray-300 p-2 rounded text-center my-2 text-sm text-gray-800 shadow-sm; }
+    </style>
+</head>
+<body class="bg-primary text-primary font-sans transition-colors duration-300">
+
+    <main class="min-h-screen p-4 md:p-6 max-w-[1400px] mx-auto flex flex-col gap-6">
+        
+        <header class="flex justify-between items-center border-b border-custom pb-4">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg text-xl">BPSK</div>
+                <div>
+                    <h1 class="text-2xl font-bold text-primary leading-tight">Transmisor BPSK (Binary Phase Shift Keying)</h1>
+                    <p class="text-xs text-secondary">Modulación por Desplazamiento de Fase Binaria</p>
+                </div>
+            </div>
+            <button id="theme-btn" class="px-4 py-2 rounded-lg bg-secondary border border-custom text-xs font-bold shadow-sm hover:bg-gray-100">
+                Cambiar Tema
+            </button>
+        </header>
+
+        <section class="w-full">
+            <div class="bg-secondary rounded-xl shadow-lg border border-custom p-1">
+                <div class="flex justify-between items-center px-4 py-2 bg-primary border-b border-custom rounded-t-lg">
+                    <h3 class="font-bold text-sm text-accent">Diagrama de Bloques (GNU Radio)</h3>
+                </div>
+                
+                <div class="gr-canvas-container" id="canvas-area">
+                    <div class="gr-wires">
+                        <svg width="1400" height="500">
+                            <path d="M 120 250 C 140 250, 140 240, 170 240" class="gr-wire" stroke="#f97316"/>
+                            <path d="M 120 310 C 140 310, 140 260, 170 260" class="gr-wire" stroke="#f97316"/>
+                            
+                            <path d="M 270 250 L 320 250" class="gr-wire" stroke="#3b82f6"/>
+                            
+                            <path d="M 440 250 L 490 250" class="gr-wire" stroke="#3b82f6"/>
+                            
+                            <path d="M 600 250 C 620 250, 620 210, 660 210" class="gr-wire" stroke="#3b82f6"/>
+
+                            <path d="M 140 100 L 380 100" class="gr-wire" stroke="#3b82f6"/>
+                            <path d="M 490 100 C 550 100, 620 190, 660 190" class="gr-wire" stroke="#3b82f6"/>
+
+                            <path d="M 740 200 L 800 200" class="gr-wire" stroke="#3b82f6"/>
+                            <path d="M 800 200 C 820 200, 820 260, 850 260" class="gr-wire" stroke="#3b82f6"/>
+                            <path d="M 800 200 C 820 200, 820 350, 850 350" class="gr-wire" stroke="#3b82f6"/>
+                        </svg>
+                    </div>
+
+                    
+                    <div class="gr-block" style="top: 220px; left: 10px;">
+                        <div class="gr-header">GLFSR Source</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key">Degree:</span> 10</div>
+                            <div class="gr-param"><span class="gr-key">Repeat:</span> Yes</div>
+                            <div class="gr-param"><span class="gr-key">Mask:</span> 0</div>
+                            <div class="gr-param"><span class="gr-key">Seed:</span> 1</div>
+                        </div>
+                        <div class="gr-port port-out type-float"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 290px; left: 10px;">
+                        <div class="gr-header">Null Source</div>
+                        <div class="gr-port port-out type-float"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 230px; left: 170px; width: 100px;">
+                        <div class="gr-header">Float To Complex</div>
+                        <div class="gr-port port-in type-float" style="top: 30%;"></div>
+                        <div class="gr-port port-in type-float" style="top: 70%;"></div>
+                        <div class="gr-port port-out type-complex"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 220px; left: 320px; width: 120px; border-color: #ef4444;">
+                        <div class="gr-header">Interpolating FIR</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key">Interp:</span> 100</div>
+                            <div class="gr-param"><span class="gr-key">Taps:</span> 100</div>
+                        </div>
+                        <div class="gr-port port-in type-complex"></div>
+                        <div class="gr-port port-out type-complex"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 210px; left: 490px; width: 110px; border-color: #10b981;">
+                        <div class="gr-header">Low Pass Filter</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key">Cutoff:</span> 500</div>
+                            <div class="gr-param"><span class="gr-key">Trans:</span> 1k</div>
+                            <div class="gr-param"><span class="gr-key">Window:</span> Hamming</div>
+                        </div>
+                        <div class="gr-port port-in type-complex"></div>
+                        <div class="gr-port port-out type-complex"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 60px; left: 10px; width: 130px;">
+                        <div class="gr-header">Signal Source</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key">Rate:</span> 100k</div>
+                            <div class="gr-param"><span class="gr-key">Freq:</span> 16k</div>
+                            <div class="gr-param"><span class="gr-key">Wave:</span> Cosine</div>
+                        </div>
+                        <div class="gr-port port-out type-complex"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 80px; left: 380px;">
+                        <div class="gr-header">Throttle</div>
+                        <div class="gr-body"><div class="gr-param">Sample Rate: 100k</div></div>
+                        <div class="gr-port port-in type-complex"></div>
+                        <div class="gr-port port-out type-complex"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 180px; left: 660px; width: 80px;">
+                        <div class="gr-header">Multiply</div>
+                        <div class="gr-port port-in type-complex" style="top: 25%;"></div>
+                        <div class="gr-port port-in type-complex" style="top: 75%;"></div>
+                        <div class="gr-port port-out type-complex"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 240px; left: 850px;">
+                        <div class="gr-header">QT GUI Time Sink</div>
+                        <div class="gr-port port-in type-complex"></div>
+                    </div>
+                    <div class="gr-block" style="top: 330px; left: 850px;">
+                        <div class="gr-header">QT GUI Freq Sink</div>
+                        <div class="gr-port port-in type-complex"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <div class="lg:col-span-6 flex flex-col gap-4">
+                
+                <div class="bg-secondary p-5 rounded-xl shadow border-l-4 border-blue-600 border border-gray-200">
+                    <h3 class="font-bold text-lg text-primary mb-2">¿Qué es BPSK? (Binary Phase Shift Keying)</h3>
+                    <p class="text-sm text-secondary mb-2 text-justify">
+                        Es la forma más simple de modulación digital. Consiste en cambiar la <strong>fase</strong> de la onda portadora para representar ceros y unos.
+                    </p>
+                    <p class="text-sm text-secondary mb-2">
+                        Imagina una onda coseno normal. Para enviar un "1", la dejamos normal. Para enviar un "-1" (o cero), la invertimos (le damos la vuelta).
+                    </p>
+                    
+                    <div class="math-box">
+                        <p class="font-bold mb-1">Las Matemáticas (Sencillas)</p>
+                        Señal Final = Datos × Portadora <br>
+                        <span class="text-blue-600 font-bold">Salida(t) = d(t) · Cos(ωt)</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 text-xs text-center mt-2">
+                        <div class="bg-blue-50 p-2 rounded">
+                            <strong>Si d(t) = 1</strong><br>
+                            1 · Cos(ωt)<br>
+                            <span class="text-green-600 font-bold">Fase 0°</span>
+                        </div>
+                        <div class="bg-red-50 p-2 rounded">
+                            <strong>Si d(t) = -1</strong><br>
+                            -1 · Cos(ωt)<br>
+                            <span class="text-red-600 font-bold">Fase 180°</span> (Invertida)
+                        </div>
+                    </div>
+                </div>
+
+                <h3 class="font-bold text-lg text-primary border-b border-custom pb-2 mt-4">Teoría Paso a Paso</h3>
+
+                <div class="info-card border-l-4 border-l-orange-500">
+                    <span class="info-title"><span class="step-number">1</span> GLFSR Source (La Fuente de Bits)</span>
+                    <p class="mb-2"><strong>¿Qué es?</strong> Es tu generador de datos. Imagina que tienes una máquina que lanza una moneda 100 mil veces por segundo.</p>
+                    <ul class="list-disc pl-4 opacity-80 space-y-1">
+                        <li><strong>Grado (Degree) = 10:</strong> Define "cuánto tarda en repetirse" la secuencia. Con 10, crea una secuencia pseudo-aleatoria larga ($2^{10}-1 = 1023$ bits distintos) antes de volver a empezar.</li>
+                        <li><strong>¿Por qué?</strong> Para probar sistemas de comunicación, no usamos mensajes reales ("Hola"), usamos ruido controlado para ver si el sistema es robusto.</li>
+                    </ul>
+                </div>
+
+                <div class="info-card border-l-4 border-l-red-500">
+                    <span class="info-title"><span class="step-number">2</span> Interpolating FIR (El "Ensanchador")</span>
+                    <p class="mb-2"><strong>Problema:</strong> El GLFSR saca puntitos matemáticos (un "1" que dura 0 segundos). Eso no se puede transmitir.</p>
+                    <p><strong>Solución:</strong> Este bloque toma ese puntito y lo repite <strong>100 veces</strong> (Interpolation: 100).</p>
+                    <div class="bg-primary p-2 rounded mt-1 border border-custom">
+                        <strong>Efecto:</strong> Convierte una aguja en un ladrillo cuadrado. Ahora el "1" dura tiempo suficiente para ser detectado.
+                    </div>
+                </div>
+
+                <div class="info-card border-l-4 border-l-green-500">
+                    <span class="info-title"><span class="step-number">3</span> Low Pass Filter (El "Lijador")</span>
+                    <p class="mb-2"><strong>Problema:</strong> El ladrillo cuadrado tiene esquinas muy afiladas. En el mundo de la radio, los cambios bruscos crean "ruido" infinito que molesta a otras frecuencias.</p>
+                    <p><strong>Solución:</strong> El filtro lija esas esquinas. Convierte el cuadrado en una montaña suave.</p>
+                    <ul class="list-disc pl-4 opacity-80 space-y-1">
+                        <li><strong>Cutoff 500 Hz:</strong> Deja pasar la forma general del bit.</li>
+                        <li><strong>Transition 1k:</strong> Cuánto tarda en cortar el resto.</li>
+                    </ul>
+                </div>
+
+                <div class="info-card border-l-4 border-l-blue-500">
+                    <span class="info-title"><span class="step-number">4</span> Multiply (El Modulador)</span>
+                    <p>
+                        Aquí ocurre la magia de la radio explicada arriba.
+                        <br>
+                        <strong>Señal (Portadora) 16k:</strong> Es un tren de alta velocidad constante.
+                        <br>
+                        <strong>Tus datos suaves:</strong> Son los pasajeros.
+                        <br>
+                        Al multiplicar, subimos los datos a ese tren de 16kHz para que puedan viajar por el aire (o el cable).
+                    </p>
+                </div>
+            </div>
+
+            <div class="lg:col-span-6 flex flex-col gap-4">
+                <h3 class="font-bold text-lg text-primary border-b border-custom pb-2">Visualización de la Señal</h3>
+                
+                <div class="bg-secondary p-4 rounded-xl shadow border border-custom">
+                    <h4 class="font-bold text-sm text-primary mb-2">Paso 1 y 2: De Bits a Onda Suave</h4>
+                    <div class="bg-primary p-2 rounded border border-custom h-48">
+                        <canvas id="chart-pulse"></canvas>
+                    </div>
+                    <div class="flex gap-4 justify-center mt-2 text-[10px]">
+                        <span class="text-gray-700 font-bold flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-gray-400"></span> Bits Crudos (GLFSR)</span>
+                        <span class="text-red-600 font-bold flex items-center gap-1"><span class="w-2 h-2 bg-red-500"></span> Cuadrada (Interpolada)</span>
+                        <span class="text-green-600 font-bold flex items-center gap-1"><span class="w-2 h-2 bg-green-500"></span> Suave (Filtrada)</span>
+                    </div>
+                </div>
+
+                <div class="bg-secondary p-4 rounded-xl shadow border border-custom">
+                    <h4 class="font-bold text-sm text-primary mb-2">Paso 3: Señal Modulada (Salida Final)</h4>
+                    <div class="bg-primary p-2 rounded border border-custom h-48">
+                        <canvas id="chart-mod"></canvas>
+                    </div>
+                    <p class="text-[10px] text-secondary mt-1 text-center font-bold">
+                        Fíjate: Cuando la onda verde baja a negativo, la onda azul se invierte (cambio de fase).
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const themeBtn = document.getElementById('theme-btn');
+            const themes = ['cream', 'dark'];
+            let curTheme = 0;
+            themeBtn.onclick = () => {
+                curTheme = (curTheme + 1) % themes.length;
+                document.documentElement.className = `theme-${themes[curTheme]}`;
+            };
+
+            const ctxPulse = document.getElementById('chart-pulse').getContext('2d');
+            const chartPulse = new Chart(ctxPulse, {
+                type: 'line',
+                data: {
+                    labels: Array(200).fill(''),
+                    datasets: [
+                        {
+                            label: 'Bits Crudos',
+                            data: [],
+                            borderColor: 'transparent',
+                            backgroundColor: '#9ca3af',
+                            pointBackgroundColor: '#9ca3af',
+                            pointRadius: 3,
+                            showLine: false
+                        },
+                        {
+                            label: 'Cuadrada (Interpolada)',
+                            data: [],
+                            borderColor: '#ef4444',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            stepped: true
+                        },
+                        {
+                            label: 'Suave (Filtrada)',
+                            data: [],
+                            borderColor: '#10b981',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, animation: false,
+                    plugins: { legend: { display: false } },
+                    scales: { x: {display:false}, y: {min: -1.5, max: 1.5} }
+                }
+            });
+
+            const ctxMod = document.getElementById('chart-mod').getContext('2d');
+            const chartMod = new Chart(ctxMod, {
+                type: 'line',
+                data: {
+                    labels: Array(200).fill(''),
+                    datasets: [{
+                        label: 'Modulada (16k)',
+                        data: [],
+                        borderColor: '#3b82f6',
+                        borderWidth: 1.5,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, animation: false,
+                    plugins: { legend: { display: false } },
+                    scales: { x: {display:false}, y: {min: -1.5, max: 1.5} }
+                }
+            });
+
+            let time = 0;
+            
+            const bitSequence = [1, -1, 1, 1, -1, -1, 1, -1, -1, -1, 1, 1, -1, 1]; 
+            
+            function animate() {
+                const rawPointsData = [];
+                const squareData = [];
+                const smoothData = [];
+                const modData = [];
+
+                for(let i=0; i<200; i++) {
+                    const globalT = time + i;
+                    
+                    const bitIndex = Math.floor(globalT / 50) % bitSequence.length;
+                    const bitValue = bitSequence[bitIndex];
+                    
+                    if ((globalT % 50) === 25) {
+                        rawPointsData.push(bitValue);
+                    } else {
+                        rawPointsData.push(null);
+                    }
+
+                    squareData.push(bitValue);
+
+                    smoothData.push(bitValue * 0.9); 
+
+                    const carrier = Math.cos(globalT * 0.5);
+                    modData.push(bitValue * carrier);
+                }
+
+                chartPulse.data.datasets[0].data = rawPointsData;
+                chartPulse.data.datasets[1].data = squareData;
+                chartPulse.data.datasets[2].data = squareData;
+
+                chartMod.data.datasets[0].data = modData;
+
+                chartPulse.update('none');
+                chartMod.update('none');
+
+                time += 1;
+                requestAnimationFrame(animate);
+            }
+
+            animate();
+        });
+    </script>
+</body>
+</html>

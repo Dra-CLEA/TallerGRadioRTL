@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="es" class="theme-cream">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Receptor BPSK & Diagrama de Ojo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root.theme-cream {
+            --color-bg-primary: #fdfaf4;
+            --color-bg-secondary: #ffffff;
+            --color-text-primary: #3a3a3a;
+            --color-text-secondary: #505050; 
+            --color-border: #e0e0e0;
+            --color-accent: #10b981;
+            --color-block-info: #ecfdf5;
+        }
+        :root.theme-dark {
+            --color-bg-primary: #1e1e1e;
+            --color-bg-secondary: #2d2d2d;
+            --color-text-primary: #e0e0e0;
+            --color-text-secondary: #cccccc;
+            --color-border: #444444;
+            --color-accent: #34d399;
+            --color-block-info: #064e3b;
+        }
+        
+        .bg-primary { background-color: var(--color-bg-primary); }
+        .bg-secondary { background-color: var(--color-bg-secondary); }
+        .text-primary { color: var(--color-text-primary); }
+        .text-secondary { color: var(--color-text-secondary); }
+        .border-custom { border-color: var(--color-border); }
+        
+        .gr-canvas-container {
+            position: relative; width: 100%; height: 350px; 
+            background-color: var(--color-bg-primary); 
+            border: 1px solid var(--color-border);
+            border-radius: 8px; overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            user-select: none;
+            background-image: radial-gradient(var(--color-border) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        
+        .gr-block {
+            position: absolute; 
+            background-color: #f3f4f6;
+            border: 2px solid #333; 
+            border-radius: 2px; 
+            box-shadow: 2px 2px 4px rgba(0,0,0,0.15); 
+            z-index: 10; 
+            font-size: 10px; color: black;
+            display: flex; flex-direction: column;
+            min-width: 120px;
+        }
+        
+        .gr-header {
+            background-color: #e5e7eb; border-bottom: 1px solid #999;
+            padding: 3px 5px; font-weight: bold; text-align: center;
+        }
+        .gr-body { padding: 4px; font-family: monospace; font-size: 9px; line-height: 1.2; }
+        .gr-param { margin-bottom: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .gr-key { font-weight: 600; color: #374151; }
+
+        .gr-port { width: 10px; height: 10px; position: absolute; border: 1px solid #000; cursor: pointer; }
+        .type-complex { background-color: #3b82f6; } 
+        .type-float { background-color: #f97316; }   
+        .port-out { right: -6px; top: 50%; transform: translateY(-50%); }
+        .port-in { left: -6px; top: 50%; transform: translateY(-50%); }
+
+        .gr-wires svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+        .gr-wire { fill: none; stroke-width: 2; opacity: 0.8; stroke: #333; }
+        
+        .info-card { @apply bg-block-info p-3 rounded-lg text-xs text-secondary border border-custom mb-3 transition-all hover:shadow-md; }
+    </style>
+</head>
+<body class="bg-primary text-primary font-sans transition-colors duration-300">
+
+    <main class="min-h-screen p-4 md:p-6 max-w-[1200px] mx-auto flex flex-col gap-6">
+        
+        <header class="flex justify-between items-center border-b border-custom pb-4">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg text-xl">RX</div>
+                <div>
+                    <h1 class="text-2xl font-bold text-primary leading-tight">Receptor BPSK & Diagrama de Ojo</h1>
+                    <p class="text-xs text-secondary">Demodulación (-16k) y Análisis de Calidad</p>
+                </div>
+            </div>
+            <button id="theme-btn" class="px-4 py-2 rounded-lg bg-secondary border border-custom text-xs font-bold shadow-sm hover:bg-gray-100">
+                Cambiar Tema
+            </button>
+        </header>
+
+        <section class="w-full">
+            <div class="bg-secondary rounded-xl shadow-lg border border-custom p-1">
+                <div class="flex justify-between items-center px-4 py-2 bg-primary border-b border-custom rounded-t-lg">
+                    <h3 class="font-bold text-sm text-accent">Diagrama de Bloques (Receiver)</h3>
+                </div>
+                
+                <div class="gr-canvas-container" id="canvas-area">
+                    <div class="gr-wires">
+                        <svg width="1200" height="350">
+                            <path d="M 140 80 L 260 80" class="gr-wire" />
+                            
+                            <path d="M 140 200 C 180 200, 180 120, 260 120" class="gr-wire" />
+                            
+                            <path d="M 360 100 L 480 100" class="gr-wire" />
+                            
+                            <path d="M 360 100 C 400 100, 400 250, 480 250" class="gr-wire" />
+                            
+                            <path d="M 600 250 L 720 250" class="gr-wire" style="stroke: #f97316;" />
+                        </svg>
+                    </div>
+
+                    <div class="gr-block" style="top: 50px; left: 20px;">
+                        <div class="gr-header">Virtual Source</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key">Stream ID:</span> channel</div>
+                        </div>
+                        <div class="gr-port port-out type-complex"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 150px; left: 20px; width: 130px; border-color: #ef4444; border-width: 2px;">
+                        <div class="gr-header">Signal Source</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key">Sample Rate:</span> 100k</div>
+                            <div class="gr-param"><span class="gr-key">Waveform:</span> Cosine</div>
+                            <div class="gr-param"><span class="gr-key">Frequency:</span> -16k</div>
+                            <div class="gr-param"><span class="gr-key">Amplitude:</span> 1</div>
+                        </div>
+                        <div class="gr-port port-out type-complex"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 70px; left: 260px; width: 100px;">
+                        <div class="gr-header">Multiply</div>
+                        <div class="gr-port port-in type-complex" style="top: 25%;"></div>
+                        <div class="gr-port port-in type-complex" style="top: 75%;"></div>
+                        <div class="gr-port port-out type-complex"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 50px; left: 480px; width: 150px;">
+                        <div class="gr-header">QT GUI Constellation Sink</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key">Points:</span> 1.024k</div>
+                            <div class="gr-param"><span class="gr-key">Autoscale:</span> No</div>
+                        </div>
+                        <div class="gr-port port-in type-complex"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 220px; left: 480px; width: 120px;">
+                        <div class="gr-header">Complex To Real</div>
+                        <div class="gr-port port-in type-complex"></div>
+                        <div class="gr-port port-out type-float"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 220px; left: 720px; width: 140px; border-color: #10b981; border-width: 2px;">
+                        <div class="gr-header">QT GUI Eye Diagram</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key">Delay:</span> 500</div>
+                            <div class="gr-param"><span class="gr-key">Sample Rate:</span> 32k</div>
+                        </div>
+                        <div class="gr-port port-in type-float"></div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            <div>
+                <h3 class="font-bold text-lg text-primary border-b border-custom pb-2 mb-4">Análisis de Componentes</h3>
+                
+                <div class="info-card border-l-4 border-l-red-500">
+                    <span class="info-title">¿Por qué -16k Hz? (Frecuencia Negativa)</span>
+                    <p class="text-justify mb-2">
+                        En el transmisor, subimos la señal a un "tren" de 16kHz. Ahora queremos bajarnos.
+                    </p>
+                    <p class="text-justify text-[11px] bg-white p-2 rounded border border-gray-200">
+                        Matemáticamente, para cancelar una frecuencia positiva ($+16k$), sumamos su opuesto negativo ($-16k$).
+                        <br>
+                        <strong>Ecuación:</strong> $16kHz + (-16kHz) = 0 Hz$ (Banda Base).
+                    </p>
+                    <p class="mt-2 text-xs">Si pusiéramos +16k otra vez, la señal se iría a 32k en lugar de bajar a 0.</p>
+                </div>
+
+                <div class="info-card border-l-4 border-l-green-500">
+                    <span class="info-title">QT GUI Eye Diagram (Diagrama de Ojo)</span>
+                    <p class="text-justify mb-2">
+                        Es un osciloscopio especial que <strong>cortar y apila</strong> todos los bits uno encima del otro. Nos permite ver la "calidad" de todos los bits a la vez.
+                    </p>
+                    <ul class="list-disc pl-4 text-xs space-y-1">
+                        <li><strong>Ojo Abierto:</strong> Hay un hueco grande en el centro. Significa que es fácil distinguir un 1 de un -1. (Buena señal).</li>
+                        <li><strong>Ojo Cerrado:</strong> Las líneas se cruzan y tapan el hueco. Significa que hay mucho ruido y el receptor se equivocará.</li>
+                    </ul>
+                </div>
+                
+                <div class="info-card border-l-4 border-l-blue-500">
+                    <span class="info-title">Complex to Real</span>
+                    <p class="text-justify text-xs">
+                        BPSK solo guarda información en la parte Real (Eje X). La parte Imaginaria (Eje Y) debería ser 0 (o ruido). Descartamos la imaginaria para limpiar la señal antes de ver el ojo.
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-4">
+                <div class="bg-secondary p-4 rounded-xl shadow border border-custom flex-grow">
+                    <div class="flex justify-between items-center mb-2">
+                        <h4 class="font-bold text-sm text-primary">Simulación: Diagrama de Ojo</h4>
+                        <div class="flex items-center gap-2">
+                            <label class="text-[10px] font-bold text-secondary">Ruido:</label>
+                            <input type="range" id="noise-slider" min="0" max="100" value="10" class="w-20 accent-green-600">
+                        </div>
+                    </div>
+                    
+                    <div class="bg-black p-2 rounded border border-gray-600 h-64 relative overflow-hidden">
+                        <canvas id="chart-eye"></canvas>
+                        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-green-500 font-mono text-xs opacity-50 pointer-events-none" id="eye-label">
+                            OJO ABIERTO
+                        </div>
+                    </div>
+                    <p class="text-center text-[10px] text-gray-400 mt-2">
+                        Sube el ruido para ver cómo se "cierra" el ojo.
+                    </p>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const themeBtn = document.getElementById('theme-btn');
+            const themes = ['cream', 'dark'];
+            let curTheme = 0;
+            themeBtn.onclick = () => {
+                curTheme = (curTheme + 1) % themes.length;
+                document.documentElement.className = `theme-${themes[curTheme]}`;
+            };
+
+            const ctx = document.getElementById('chart-eye').getContext('2d');
+            
+            
+            const datasets = [];
+            const numTraces = 15;
+            
+            for(let i=0; i<numTraces; i++) {
+                datasets.push({
+                    data: [],
+                    borderColor: `rgba(52, 211, 153, ${0.3 + Math.random()*0.4})`,
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    tension: 0.4,
+                    showLine: true
+                });
+            }
+
+            const chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array(40).fill(''),
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, animation: false,
+                    plugins: { legend: { display: false } },
+                    scales: { 
+                        x: { display: false }, 
+                        y: { min: -2, max: 2, grid: { color: '#333' } } 
+                    }
+                }
+            });
+
+            const noiseSlider = document.getElementById('noise-slider');
+            const eyeLabel = document.getElementById('eye-label');
+            let time = 0;
+
+            function rrcPulse(t) {
+                if (Math.abs(t) < 0.01) return 1;
+                const x = Math.PI * t;
+                return Math.sin(x)/x * Math.cos(0.5*x)/(1 - (2*0.5*t)**2);
+            }
+
+            function animate() {
+                const noiseLevel = parseInt(noiseSlider.value) / 100;
+                
+                if (noiseLevel > 0.6) {
+                    eyeLabel.innerText = "OJO CERRADO (ERROR)";
+                    eyeLabel.style.color = "red";
+                } else {
+                    eyeLabel.innerText = "OJO ABIERTO (OK)";
+                    eyeLabel.style.color = "#10b981";
+                }
+
+                chart.data.datasets.forEach((dataset, idx) => {
+                    const prevBit = Math.random() > 0.5 ? 1 : -1;
+                    const currBit = Math.random() > 0.5 ? 1 : -1;
+                    const nextBit = Math.random() > 0.5 ? 1 : -1;
+                    
+                    const traceData = [];
+                    for(let i=0; i<40; i++) {
+                        const t = (i - 20) / 10;
+                        
+                        let val = prevBit * rrcPulse(t + 2) + 
+                                  currBit * rrcPulse(t) + 
+                                  nextBit * rrcPulse(t - 2);
+                        
+                        val += (Math.random() - 0.5) * noiseLevel * 2;
+                        
+                        traceData.push(val);
+                    }
+                    
+                    if(Math.random() > 0.8) { 
+                        dataset.data = traceData;
+                    }
+                });
+
+                chart.update('none');
+                requestAnimationFrame(animate);
+            }
+            animate();
+        });
+    </script>
+</body>
+</html>

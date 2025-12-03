@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="es" class="theme-cream">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BPSK: Sincronización por Delay</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root.theme-cream {
+            --color-bg-primary: #fdfaf4;
+            --color-bg-secondary: #ffffff;
+            --color-text-primary: #3a3a3a;
+            --color-text-secondary: #505050; 
+            --color-border: #e0e0e0;
+            --color-accent: #3b82f6; 
+            --color-block-info: #eef2ff;
+        }
+        :root.theme-dark {
+            --color-bg-primary: #1e1e1e;
+            --color-bg-secondary: #2d2d2d;
+            --color-text-primary: #e0e0e0;
+            --color-text-secondary: #cccccc;
+            --color-border: #444444;
+            --color-accent: #60a5fa;
+            --color-block-info: #374151;
+        }
+        
+        .bg-primary { background-color: var(--color-bg-primary); }
+        .bg-secondary { background-color: var(--color-bg-secondary); }
+        .text-primary { color: var(--color-text-primary); }
+        .text-secondary { color: var(--color-text-secondary); }
+        .border-custom { border-color: var(--color-border); }
+        
+        .gr-canvas-container {
+            position: relative; width: 100%; height: 350px;
+            background-color: var(--color-bg-primary); 
+            border: 1px solid var(--color-border);
+            border-radius: 8px; overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            user-select: none;
+            background-image: radial-gradient(var(--color-border) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        
+        .gr-block {
+            position: absolute; 
+            background-color: #f3f4f6;
+            border: 2px solid #333; 
+            border-radius: 2px; 
+            box-shadow: 2px 2px 4px rgba(0,0,0,0.15); 
+            z-index: 10; 
+            font-size: 10px; color: black;
+            display: flex; flex-direction: column;
+            min-width: 120px;
+        }
+        
+        .gr-header {
+            background-color: #e5e7eb; border-bottom: 1px solid #999;
+            padding: 3px 5px; font-weight: bold; text-align: center;
+        }
+        .gr-body { padding: 4px; font-family: monospace; font-size: 9px; line-height: 1.2; }
+        .gr-param { margin-bottom: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .gr-key { font-weight: 600; color: #374151; }
+
+        .gr-port { width: 10px; height: 10px; position: absolute; border: 1px solid #000; cursor: pointer; }
+        .type-complex { background-color: #3b82f6; } 
+        .port-out { right: -6px; top: 50%; transform: translateY(-50%); }
+        .port-in { left: -6px; top: 50%; transform: translateY(-50%); }
+
+        .gr-wires svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+        .gr-wire { fill: none; stroke-width: 2; opacity: 0.8; stroke: #333; }
+        
+        .info-card { @apply bg-block-info p-3 rounded-lg text-xs text-secondary border border-custom mb-3 transition-all hover:shadow-md; }
+    </style>
+</head>
+<body class="bg-primary text-primary font-sans transition-colors duration-300">
+
+    <main class="min-h-screen p-4 md:p-6 max-w-[1200px] mx-auto flex flex-col gap-6">
+        
+        <header class="flex justify-between items-center border-b border-custom pb-4">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg text-xl">D</div>
+                <div>
+                    <h1 class="text-2xl font-bold text-primary leading-tight">Compensación de Retardo (Delay)</h1>
+                    <p class="text-xs text-secondary">Alineación temporal entre señal filtrada y original</p>
+                </div>
+            </div>
+            <button id="theme-btn" class="px-4 py-2 rounded-lg bg-secondary border border-custom text-xs font-bold shadow-sm hover:bg-gray-100">
+                Tema
+            </button>
+        </header>
+
+        <section class="w-full">
+            <div class="bg-secondary rounded-xl shadow-lg border border-custom p-1">
+                <div class="flex justify-between items-center px-4 py-2 bg-primary border-b border-custom rounded-t-lg">
+                    <h3 class="font-bold text-sm text-accent">Esquema de Sincronización</h3>
+                </div>
+                
+                <div class="gr-canvas-container" id="canvas-area">
+                    <div class="gr-wires">
+                        <svg width="1200" height="350">
+                            <path d="M 190 120 L 220 120" class="gr-wire" />
+                            
+                            <path d="M 220 120 C 240 120, 240 80, 260 80" class="gr-wire" />
+                            <path d="M 400 80 C 450 80, 450 150, 500 150" class="gr-wire" />
+
+                            <path d="M 220 120 C 240 120, 240 220, 260 220" class="gr-wire" />
+                            <path d="M 370 220 C 450 220, 450 170, 500 170" class="gr-wire" />
+                        </svg>
+                    </div>
+
+                    <div class="gr-block" style="top: 90px; left: 20px;">
+                        <div class="gr-header">Interpolating FIR Filter</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key">Interpolation:</span> 100</div>
+                            <div class="gr-param"><span class="gr-key">Taps:</span> 100</div>
+                        </div>
+                        <div class="gr-port port-in type-complex"></div>
+                        <div class="gr-port port-out type-complex"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 20px; left: 260px; width: 140px;">
+                        <div class="gr-header">Low Pass Filter</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key">Decimation:</span> 1</div>
+                            <div class="gr-param"><span class="gr-key">Gain:</span> 1</div>
+                            <div class="gr-param"><span class="gr-key">Sample Rate:</span> 100k</div>
+                            <div class="gr-param"><span class="gr-key">Cutoff Freq:</span> 500</div>
+                            <div class="gr-param"><span class="gr-key">Transition Width:</span> 1k</div>
+                            <div class="gr-param"><span class="gr-key">Window:</span> Hamming</div>
+                        </div>
+                        <div class="gr-port port-in type-complex"></div>
+                        <div class="gr-port port-out type-complex"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 190px; left: 260px; width: 110px; border-color: #3b82f6; border-width: 2px;">
+                        <div class="gr-header">Delay</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key">Delay:</span> 1.2k</div>
+                        </div>
+                        <div class="gr-port port-in type-complex"></div>
+                        <div class="gr-port port-out type-complex"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 120px; left: 500px; width: 150px;">
+                        <div class="gr-header">QT GUI Time Sink</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key">Number of Points:</span> 1.024k</div>
+                            <div class="gr-param"><span class="gr-key">Sample Rate:</span> 100k</div>
+                            <div class="gr-param"><span class="gr-key">Autoscale:</span> No</div>
+                        </div>
+                        <div class="gr-port port-in type-complex" style="top: 30%;"></div>
+                        <div class="gr-port port-in type-complex" style="top: 70%;"></div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            <div>
+                <h3 class="font-bold text-lg text-primary border-b border-custom pb-2 mb-4">¿Por qué usamos el bloque Delay?</h3>
+                
+                <div class="info-card border-l-4 border-l-red-500">
+                    <span class="font-bold text-sm block mb-1">El problema: Retardo de Grupo</span>
+                    <p class="text-justify">
+                        El <strong>Low Pass Filter</strong> (filtro pasa bajo) funciona haciendo muchas operaciones matemáticas (convoluciones) para suavizar la señal cuadrada. Como una máquina que tarda en procesar un producto, el filtro tarda un tiempo en sacar la señal suavizada.
+                        <br><br>
+                        Si conectáramos la señal cuadrada directa al gráfico, saldría "antes" que la señal suavizada, y se verían desalineadas.
+                    </p>
+                </div>
+
+                <div class="info-card border-l-4 border-l-green-500">
+                    <span class="font-bold text-sm block mb-1">La solución: Castigar a la señal rápida</span>
+                    <p class="text-justify">
+                        El bloque <strong>Delay</strong> no hace nada más que "retener" la señal cuadrada original. Le decimos: <em>"Espérate 1200 muestras (1.2k) antes de salir"</em>.
+                        <br><br>
+                        Ese número (1.2k) se calcula o se prueba para que coincida exactamente con lo que tarda el filtro en procesar. Así, ambas llegan a la meta (el Time Sink) al mismo tiempo.
+                    </p>
+                </div>
+            </div>
+
+            <div class="bg-secondary p-4 rounded-xl shadow border border-custom">
+                <div class="flex justify-between items-center mb-2">
+                    <h4 class="font-bold text-sm text-primary">Resultado en QT GUI Time Sink</h4>
+                    <span class="text-[10px] bg-gray-200 px-2 py-1 rounded text-gray-600 font-mono">Zoom: 200 muestras</span>
+                </div>
+                
+                <div class="bg-primary p-2 rounded border border-custom h-56 relative">
+                    <canvas id="chart-superpos"></canvas>
+                </div>
+
+                <div class="flex justify-center gap-6 mt-3 text-xs">
+                    <div class="flex items-center gap-2">
+                        <span class="w-3 h-3 bg-red-500 rounded-sm"></span>
+                        <span class="font-bold text-secondary">Original (Retrasada)</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-3 h-3 bg-green-500 rounded-sm"></span>
+                        <span class="font-bold text-secondary">Filtrada (Suavizada)</span>
+                    </div>
+                </div>
+                <p class="text-center text-[10px] text-gray-400 mt-2 italic">
+                    ¡Observa cómo la onda verde envuelve suavemente a la roja sin picos!
+                </p>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const themeBtn = document.getElementById('theme-btn');
+            const themes = ['cream', 'dark'];
+            let curTheme = 0;
+            themeBtn.onclick = () => {
+                curTheme = (curTheme + 1) % themes.length;
+                document.documentElement.className = `theme-${themes[curTheme]}`;
+            };
+
+            const ctx = document.getElementById('chart-superpos').getContext('2d');
+            const chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array(200).fill(''),
+                    datasets: [
+                        {
+                            label: 'Original (Delay)',
+                            data: [],
+                            borderColor: '#ef4444',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            stepped: true,
+                            order: 2
+                        },
+                        {
+                            label: 'Filtrada (LPF)',
+                            data: [],
+                            borderColor: '#10b981',
+                            borderWidth: 3,
+                            pointRadius: 0,
+                            tension: 0.5,
+                            cubicInterpolationMode: 'monotone',
+                            order: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, animation: false,
+                    plugins: { legend: { display: false } },
+                    scales: { 
+                        x: { display: false }, 
+                        y: { min: -1.5, max: 1.5, grid: { color: 'rgba(0,0,0,0.05)' } } 
+                    }
+                }
+            });
+
+            let time = 0;
+            const bits = [1, 1, -1, -1, 1, -1, 1, 1, -1, 1, -1, -1];
+
+            function smoothArray(data, iterations) {
+                let currentData = [...data];
+                for(let k=0; k<iterations; k++) {
+                    let nextData = [];
+                    for(let i=0; i<currentData.length; i++) {
+                        const prev = currentData[Math.max(0, i-1)];
+                        const curr = currentData[i];
+                        const next = currentData[Math.min(currentData.length-1, i+1)];
+                        nextData.push((prev + curr + next) / 3);
+                    }
+                    currentData = nextData;
+                }
+                return currentData;
+            }
+
+            function animate() {
+                const wideRange = 300; 
+                const rawBits = [];
+                for(let i=0; i<wideRange; i++) {
+                    const t = time + i - 50;
+                    const bitIdx = Math.floor(t / 40) % bits.length;
+                    const safeIdx = (bitIdx < 0) ? bits.length + bitIdx : bitIdx;
+                    rawBits.push(bits[safeIdx]);
+                }
+
+                let smoothedFull = smoothArray(rawBits, 20); 
+
+                const displayGreen = smoothedFull.slice(50, 250);
+                
+                const displayRed = [];
+                const lag = 10;
+                for(let i=0; i<200; i++) {
+                    const t = time + i - lag; 
+                    const bitIdx = Math.floor(t / 40) % bits.length;
+                    const safeIdx = (bitIdx < 0) ? bits.length + bitIdx : bitIdx;
+                    displayRed.push(bits[safeIdx]);
+                }
+
+                const boostedGreen = displayGreen.map(v => v * 1.15);
+
+                chart.data.datasets[0].data = displayRed;
+                chart.data.datasets[1].data = boostedGreen;
+                chart.update('none');
+
+                time += 0.5;
+                requestAnimationFrame(animate);
+            }
+            animate();
+        });
+    </script>
+</body>
+</html>

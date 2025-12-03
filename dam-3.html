@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="es" class="theme-cream">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Receptor AM Completo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root.theme-cream {
+            --color-bg-primary: #fdfaf4;
+            --color-bg-secondary: #ffffff;
+            --color-text-primary: #3a3a3a;
+            --color-text-secondary: #707070;
+            --color-border: #e0e0e0;
+            --color-accent: #3b82f6; 
+            --color-chart-grid: rgba(0, 0, 0, 0.1);
+            --color-block-info: #eef2ff;
+        }
+        :root.theme-dark {
+            --color-bg-primary: #1e1e1e;
+            --color-bg-secondary: #2d2d2d;
+            --color-text-primary: #e0e0e0;
+            --color-text-secondary: #aaaaaa;
+            --color-border: #444444;
+            --color-accent: #60a5fa;
+            --color-chart-grid: rgba(255, 255, 255, 0.2);
+            --color-block-info: #374151;
+        }
+        
+        .bg-primary { background-color: var(--color-bg-primary); }
+        .bg-secondary { background-color: var(--color-bg-secondary); }
+        .text-primary { color: var(--color-text-primary); }
+        .text-secondary { color: var(--color-text-secondary); }
+        .border-custom { border-color: var(--color-border); }
+        .text-accent { color: var(--color-accent); }
+        .bg-block-info { background-color: var(--color-block-info); }
+
+        html, body { transition: background-color 0.3s ease, color 0.3s ease; }
+
+        .gr-canvas-container {
+            position: relative; width: 100%; height: 340px; 
+            background-color: var(--color-bg-primary); 
+            border: 1px solid var(--color-border);
+            border-radius: 8px; overflow-x: auto; overflow-y: hidden;
+            font-family: sans-serif; user-select: none;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+        }
+        
+        .gr-block {
+            position: absolute; 
+            background-color: #e6e6ff; 
+            border: 2px solid #333; 
+            border-radius: 4px; padding: 5px; 
+            box-shadow: 2px 2px 6px rgba(0,0,0,0.15); 
+            z-index: 10; font-size: 10px; color: black; white-space: nowrap;
+        }
+        .gr-block:hover { transform: scale(1.02); z-index: 20; border-color: var(--color-accent); cursor: help; }
+        .theme-dark .gr-block { background-color: #e0e7ff; border-color: #666; }
+
+        .gr-title { font-weight: bold; text-align: center; border-bottom: 1px solid #999; margin-bottom: 3px; padding-bottom: 2px; font-size: 11px;}
+        .gr-param { font-family: monospace; margin-bottom: 1px; font-size: 9px; overflow: hidden; text-overflow: ellipsis; }
+        
+        .gr-port {
+            width: 10px; height: 10px; border: 1px solid #000; position: absolute; cursor: pointer;
+        }
+        .gr-port.complex { background-color: #3b82f6; }
+        .gr-port.float { background-color: #f97316; }
+        .gr-port.in { left: -6px; } .gr-port.out { right: -6px; }
+        
+        .gr-wires svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+        .gr-wire { fill: none; stroke: var(--color-accent); stroke-width: 2; opacity: 0.6; }
+
+        .gnuradio-dialog {
+            background-color: var(--color-bg-secondary); border: 1px solid var(--color-border); 
+            border-radius: 6px; margin-bottom: 10px; overflow: hidden;
+        }
+        .gnuradio-body { padding: 10px; font-size: 0.85rem; }
+        
+        canvas { max-height: 200px; width: 100%; }
+        input[type=range] { height: 6px; border-radius: 5px; cursor: pointer; }
+
+        .info-card { @apply bg-block-info p-2 rounded text-xs text-secondary border border-custom mb-2; }
+        .info-title { @apply font-bold text-primary mb-1 block text-sm; }
+    </style>
+</head>
+<body class="bg-primary text-primary font-sans">
+
+    <main class="min-h-screen p-4 md:p-6 max-w-[1400px] mx-auto flex flex-col gap-6">
+        
+        <header class="flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-accent rounded-lg flex items-center justify-center text-white font-bold shadow-lg">AM</div>
+                <div>
+                    <h2 class="text-xl font-bold text-accent leading-none">GNURadio</h2>
+                    <span class="text-xs text-secondary">Receptor Completo (RF a Audio)</span>
+                </div>
+            </div>
+            <button id="theme-toggle-btn" class="p-2 rounded-full bg-secondary border border-custom shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-transform hover:scale-105">
+                <span>☀️</span>
+            </button>
+        </header>
+
+        <section class="w-full">
+            <div class="bg-secondary rounded-xl shadow-lg border border-custom p-1">
+                <div class="flex justify-between items-center px-4 py-2 border-b border-custom bg-primary rounded-t-lg">
+                    <h3 class="font-bold text-accent">1. Cadena de Procesamiento</h3>
+                    <div class="text-[10px] text-secondary font-mono flex gap-4">
+                        <span>SR Entrada: 256k</span>
+                        <span>SR Intermedio: 64k</span>
+                        <span>SR Salida: 48k</span>
+                    </div>
+                </div>
+                
+                <div class="gr-canvas-container" id="flowgraph-area">
+                    <div class="gr-wires">
+                        <svg width="1800" height="340">
+                            <path d="M 140 85 C 180 85, 180 140, 220 145" class="gr-wire" stroke="#3b82f6"/>
+                            <path d="M 140 225 C 180 225, 180 160, 220 165" class="gr-wire" stroke="#3b82f6"/>
+                            <path d="M 300 155 L 360 155" class="gr-wire" stroke="#3b82f6"/>
+                            <path d="M 520 155 L 580 155" class="gr-wire" stroke="#3b82f6"/>
+                            
+                            <path d="M 700 155 L 760 155" class="gr-wire" stroke="#f97316"/>
+                            <path d="M 880 155 L 940 155" class="gr-wire" stroke="#f97316"/>
+                            <path d="M 1060 155 L 1120 155" class="gr-wire" stroke="#f97316"/>
+                            
+                            <path d="M 1280 155 C 1320 155, 1320 100, 1360 100" class="gr-wire" stroke="#f97316"/>
+                            <path d="M 1280 155 C 1320 155, 1320 200, 1360 200" class="gr-wire" stroke="#f97316"/>
+                        </svg>
+                    </div>
+
+                    <div class="gr-block" style="top: 40px; left: 20px; width: 120px;">
+                        <div class="gr-title">File Source</div>
+                        <div class="gr-param">am_usrp710.dat</div>
+                        <div class="gr-port out complex" style="top: 50%;"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 180px; left: 20px; width: 120px;">
+                        <div class="gr-title">Signal Source</div>
+                        <div class="gr-param">Freq: -80k</div>
+                        <div class="gr-port out complex" style="top: 50%;"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 130px; left: 220px; width: 80px; height: 50px; display:flex; align-items:center; justify-content:center; font-weight:bold;">
+                        MULT
+                        <div class="gr-port in complex" style="top: 30%;"></div>
+                        <div class="gr-port in complex" style="top: 70%;"></div>
+                        <div class="gr-port out complex" style="top: 50%;"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 90px; left: 360px; width: 160px; border-color: #3b82f6; border-width: 2px;">
+                        <div class="gr-title">Low Pass Filter</div>
+                        <div class="gr-param">Decimation: 4</div>
+                        <div class="gr-param">Cutoff: 5k</div>
+                        <div class="gr-port in complex" style="top: 50%;"></div>
+                        <div class="gr-port out complex" style="top: 50%;"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 130px; left: 580px; width: 120px; background-color: #fff7ed;" title="Demodulador AM: Calcula la magnitud (envolvente) de la señal compleja">
+                        <div class="gr-title">Complex to Mag</div>
+                        <div class="gr-param">|a + jb| = √(a²+b²)</div>
+                        <div class="gr-port in complex" style="top: 50%;"></div>
+                        <div class="gr-port out float" style="top: 50%;"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 130px; left: 760px; width: 120px; background-color: #fff7ed;" title="Elimina el offset (la portadora 1+...) para centrar el audio en 0">
+                        <div class="gr-title">DC Blocker</div>
+                        <div class="gr-param">Length: 32</div>
+                        <div class="gr-port in float" style="top: 50%;"></div>
+                        <div class="gr-port out float" style="top: 50%;"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 130px; left: 940px; width: 120px; background-color: #fff7ed;" title="Control de Volumen">
+                        <div class="gr-title">Multiply Const</div>
+                        <div class="gr-param">Constant: <span id="lbl-vol">0.5</span></div>
+                        <div class="gr-port in float" style="top: 50%;"></div>
+                        <div class="gr-port out float" style="top: 50%;"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 110px; left: 1120px; width: 160px; border-color: #f97316; border-width: 2px;" title="Ajusta la velocidad de muestreo para la tarjeta de audio">
+                        <div class="gr-title">Rational Resampler</div>
+                        <div class="gr-param">Interpolation: 3</div>
+                        <div class="gr-param">Decimation: 4</div>
+                        <div class="gr-param text-accent font-bold">64k × 3 ÷ 4 = 48k</div>
+                        <div class="gr-port in float" style="top: 50%;"></div>
+                        <div class="gr-port out float" style="top: 50%;"></div>
+                    </div>
+
+                    <div class="gr-block" style="top: 60px; left: 1360px; width: 140px;">
+                        <div class="gr-title">QT GUI Time Sink</div>
+                        <div class="gr-param">Audio Waveform</div>
+                        <div class="gr-port in float" style="top: 50%;"></div>
+                    </div>
+                    <div class="gr-block" style="top: 180px; left: 1360px; width: 140px;">
+                        <div class="gr-title">Audio Sink</div>
+                        <div class="gr-param">Sample Rate: 48k</div>
+                        <div class="gr-port in float" style="top: 50%;"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <div class="lg:col-span-5 flex flex-col gap-4">
+                
+                <div class="bg-secondary p-4 rounded-xl shadow border border-custom">
+                    <h3 class="font-bold text-primary mb-3 border-b border-custom pb-2">2. Procesamiento de Audio (Naranja)</h3>
+                    
+                    <div class="space-y-3">
+                        <div class="info-card">
+                            <span class="info-title">Complex to Mag (Demodulación)</span>
+                            La señal AM modulada es una envolvente compleja. Este bloque calcula la <strong>magnitud</strong> (teorema de Pitágoras) para extraer esa envolvente, que es nuestra señal de audio más un offset DC.
+                        </div>
+
+                        <div class="info-card">
+                            <span class="info-title">DC Blocker (Filtro de Continua)</span>
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs w-2/3">La AM es <code>1 + Audio</code>. Este bloque resta el promedio ("1") para dejar solo el "Audio" centrado en 0. Sin esto, el altavoz recibiría una señal constante peligrosa.</span>
+                                <div class="flex flex-col items-center bg-primary p-2 rounded">
+                                    <label class="text-[10px] font-bold text-secondary mb-1">Activar</label>
+                                    <input type="checkbox" id="check-dc" checked class="w-4 h-4 accent-blue-500">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="info-card">
+                            <span class="info-title">Multiply Const (Volumen)</span>
+                            <div class="flex items-center gap-3 mt-1">
+                                <span class="text-xs">Ganancia:</span>
+                                <input type="range" id="slider-vol" min="0" max="2" step="0.1" value="0.5" class="flex-grow accent-orange-500">
+                                <span class="font-mono text-xs w-8 text-right" id="val-vol">0.5</span>
+                            </div>
+                            <p class="text-[10px] text-secondary mt-1">Multiplica la señal. &lt;1 atenúa, &gt;1 amplifica. Evita que sature (ruido nasal/distorsión).</p>
+                        </div>
+
+                        <div class="info-card border-l-4 border-l-orange-500">
+                            <span class="info-title">Rational Resampler (Matemáticas)</span>
+                            Salida del LPF = <strong>64kHz</strong>.<br>
+                            Audio Sink requiere = <strong>48kHz</strong>.<br>
+                            Operación: <code>64000 * 3 / 4 = 48000 Hz</code>.<br>
+                            <em class="text-[10px]">¡Interpolación 3, Decimación 4!</em>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-7 flex flex-col gap-4">
+                
+                <div class="bg-secondary p-4 rounded-xl shadow border border-custom">
+                    <h3 class="font-bold text-primary mb-2 text-sm">3. Etapa RF (Compleja - Espectro)</h3>
+                    <div class="bg-primary p-2 rounded border border-custom relative h-40">
+                        <canvas id="spectrum-chart"></canvas>
+                    </div>
+                </div>
+
+                <div class="bg-secondary p-4 rounded-xl shadow border border-custom flex-grow">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="font-bold text-primary text-sm">4. Etapa Audio (Flotante - Tiempo)</h3>
+                        <div class="text-[10px] flex gap-3">
+                            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-gray-400"></span> Raw (con DC)</span>
+                            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-orange-500 font-bold"></span> Final (Audio)</span>
+                        </div>
+                    </div>
+                    <div class="bg-primary p-2 rounded border border-custom relative h-48">
+                        <canvas id="time-chart"></canvas>
+                        <div id="dc-indicator" class="absolute left-2 top-1/2 w-full border-t border-dashed border-gray-400 opacity-50 text-[9px] text-gray-500">Nivel DC (1.0)</div>
+                    </div>
+                    <p class="text-[10px] text-secondary mt-2 text-center">
+                        Observa cómo el <strong>DC Blocker</strong> baja la señal gris (Raw) hasta la línea central (Naranja).
+                    </p>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const themeBtn = document.getElementById('theme-toggle-btn');
+            const themes = ['cream', 'dark'];
+            let currentThemeIdx = 0;
+            
+            function updateTheme() {
+                const theme = themes[currentThemeIdx];
+                document.documentElement.className = `theme-${theme}`;
+                
+                const style = getComputedStyle(document.documentElement);
+                const gridColor = style.getPropertyValue('--color-chart-grid').trim();
+                
+                [window.chartSpectrum, window.chartTime].forEach(chart => {
+                    if(chart) {
+                        chart.options.scales.x.grid.color = gridColor;
+                        chart.options.scales.y.grid.color = gridColor;
+                        chart.update('none');
+                    }
+                });
+            }
+
+            themeBtn.addEventListener('click', () => {
+                currentThemeIdx = (currentThemeIdx + 1) % themes.length;
+                updateTheme();
+            });
+
+            
+            const ctxSpec = document.getElementById('spectrum-chart').getContext('2d');
+            window.chartSpectrum = new Chart(ctxSpec, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 100}, (_, i) => i),
+                    datasets: [{
+                        label: 'Señal RF Filtrada',
+                        data: Array(100).fill(0),
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, animation: false,
+                    plugins: { legend: { display: false } },
+                    scales: { 
+                        x: { display: false }, 
+                        y: { display: false, min: 0, max: 1.2 } 
+                    }
+                }
+            });
+
+            const ctxTime = document.getElementById('time-chart').getContext('2d');
+            window.chartTime = new Chart(ctxTime, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 200}, (_, i) => i),
+                    datasets: [
+                        {
+                            label: 'Raw (Post-Mag)',
+                            data: [],
+                            borderColor: '#9ca3af',
+                            borderWidth: 1,
+                            borderDash: [4,4],
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Final Audio',
+                            data: [],
+                            borderColor: '#f97316',
+                            borderWidth: 2,
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, animation: false,
+                    plugins: { legend: { display: false } },
+                    scales: { 
+                        x: { display: false }, 
+                        y: { display: false, min: -0.5, max: 2.5 }
+                    }
+                }
+            });
+
+            const els = {
+                volSlider: document.getElementById('slider-vol'),
+                volLabel: document.getElementById('val-vol'),
+                volBlockParam: document.getElementById('lbl-vol'),
+                dcCheck: document.getElementById('check-dc'),
+                dcIndicator: document.getElementById('dc-indicator')
+            };
+
+            let time = 0;
+
+            function animate() {
+                time += 0.1;
+                
+                const vol = parseFloat(els.volSlider.value);
+                const dcBlocked = els.dcCheck.checked;
+                
+                els.volLabel.textContent = vol.toFixed(1);
+                els.volBlockParam.textContent = vol.toFixed(2);
+                
+                els.dcIndicator.style.top = dcBlocked ? '70%' : '30%';
+
+                
+                const specData = window.chartSpectrum.data.datasets[0].data.map((_, i) => {
+                    const x = (i - 50) / 10;
+                    return Math.exp(-x*x) * (0.8 + Math.random()*0.1);
+                });
+
+                const audioFreq = 0.2;
+                const rawAudio = [];
+                const finalAudio = [];
+
+                for(let i=0; i<200; i++) {
+                    const t = time + i * 0.1;
+                    const signal = Math.sin(t * audioFreq) * Math.sin(t * audioFreq * 0.3) * 0.5;
+                    
+                    const rawVal = 1.0 + signal; 
+                    
+                    let processedVal = rawVal;
+                    if (dcBlocked) {
+                        processedVal = rawVal - 1.0; 
+                    }
+                    
+                    processedVal = processedVal * vol;
+
+
+                    rawAudio.push(rawVal);
+                    finalAudio.push(processedVal);
+                }
+
+                window.chartSpectrum.data.datasets[0].data = specData;
+                window.chartTime.data.datasets[0].data = rawAudio;
+                window.chartTime.data.datasets[1].data = finalAudio;
+
+                if(!dcBlocked) {
+                    window.chartTime.options.scales.y.min = 0; 
+                    window.chartTime.options.scales.y.max = 3;
+                } else {
+                    window.chartTime.options.scales.y.min = -1.5; 
+                    window.chartTime.options.scales.y.max = 1.5;
+                }
+
+                window.chartSpectrum.update('none');
+                window.chartTime.update('none');
+
+                requestAnimationFrame(animate);
+            }
+
+            updateTheme();
+            animate();
+        });
+    </script>
+</body>
+</html>

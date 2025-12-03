@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="es" class="theme-cream">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transcendental vs Complex to Float</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root.theme-cream {
+            --color-bg-primary: #fdfaf4;
+            --color-bg-secondary: #ffffff;
+            --color-text-primary: #3a3a3a;
+            --color-text-secondary: #505050; 
+            --color-border: #e0e0e0;
+            --color-accent: #10b981;
+            --color-accent-light: #ecfdf5;
+            --color-block-header: #d1fae5;
+            --color-block-border: #059669;
+        }
+        
+        :root.theme-dark {
+            --color-bg-primary: #1e1e1e;
+            --color-bg-secondary: #2d2d2d;
+            --color-text-primary: #e0e0e0;
+            --color-text-secondary: #cccccc;
+            --color-border: #444444;
+            --color-accent: #34d399;
+            --color-accent-light: #064e3b;
+            --color-block-header: #065f46;
+            --color-block-border: #34d399;
+        }
+        
+        body { font-family: 'Inter', sans-serif; }
+        .font-mono { font-family: 'Fira Code', monospace; }
+
+        .bg-primary { background-color: var(--color-bg-primary); }
+        .bg-secondary { background-color: var(--color-bg-secondary); }
+        .text-primary { color: var(--color-text-primary); }
+        .text-secondary { color: var(--color-text-secondary); }
+        .border-custom { border-color: var(--color-border); }
+        .text-accent { color: var(--color-accent); }
+        
+        .gr-canvas-container {
+            position: relative; width: 100%; height: 320px; 
+            background-color: var(--color-bg-primary); 
+            border: 1px solid var(--color-border);
+            border-radius: 8px; overflow: hidden;
+            user-select: none;
+            background-image: radial-gradient(var(--color-border) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        
+        .gr-block {
+            position: absolute; 
+            background-color: #f3f4f6;
+            border: 2px solid; 
+            border-radius: 4px; 
+            box-shadow: 3px 3px 0px rgba(0,0,0,0.1); 
+            z-index: 10; 
+            font-size: 11px; color: black;
+            display: flex; flex-direction: column;
+            min-width: 130px;
+        }
+        
+        .gr-header {
+            padding: 4px 8px; font-weight: 800; text-align: center;
+            border-bottom: 1px solid #9ca3af;
+            white-space: nowrap;
+        }
+        
+        .gr-body { padding: 6px; font-family: 'Fira Code', monospace; font-size: 10px; line-height: 1.4; }
+        .gr-param { margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .gr-key { font-weight: 600; color: #374151; }
+
+        .block-source { border-color: #9ca3af; }
+        .block-source .gr-header { background-color: #e5e7eb; }
+
+        .block-trans { border-color: var(--color-block-border); }
+        .block-trans .gr-header { background-color: var(--color-block-header); color: #065f46; }
+
+        .gr-port { 
+            width: 12px; height: 12px; position: absolute; 
+            border: 1px solid #1f2937; cursor: pointer; 
+            transition: transform 0.2s;
+        }
+        .gr-port:hover { transform: scale(1.2) translateY(-50%); }
+        
+        .type-complex { background-color: #3b82f6; }
+        .type-float { background-color: #f97316; }
+        
+        .port-out { right: -7px; top: 50%; transform: translateY(-50%); }
+        .port-in { left: -7px; top: 50%; transform: translateY(-50%); }
+
+        .gr-wires svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+        .gr-wire { fill: none; stroke-width: 2.5; opacity: 0.7; stroke: #333; stroke-linecap: round; }
+        
+        .info-card { @apply bg-secondary p-4 rounded-xl border border-custom mb-4 shadow-sm; }
+    </style>
+</head>
+<body class="bg-primary text-primary transition-colors duration-300">
+
+    <main class="min-h-screen p-4 md:p-8 max-w-[1200px] mx-auto flex flex-col gap-8">
+        
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-custom pb-6 gap-4">
+            <div class="flex items-center gap-5">
+                <div class="w-14 h-14 bg-emerald-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg text-2xl">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-3xl font-extrabold text-primary tracking-tight">Transcendental vs. Complex to Float</h1>
+                    <p class="text-sm text-secondary font-medium mt-1">Desmitificando las matemáticas en GNU Radio</p>
+                </div>
+            </div>
+            <button id="theme-btn" class="px-4 py-2 rounded-lg bg-secondary border border-custom text-xs font-bold shadow-sm hover:opacity-80 text-primary">
+                Cambiar Tema
+            </button>
+        </header>
+
+        <section class="w-full">
+            <div class="bg-secondary rounded-2xl shadow-xl border border-custom overflow-hidden">
+                <div class="px-6 py-3 bg-primary border-b border-custom flex justify-between items-center">
+                    <h3 class="font-bold text-sm text-accent">Diagrama</h3>
+                    <span class="text-[10px] uppercase tracking-wider text-secondary font-bold">Flowgraph</span>
+                </div>
+                
+                <div class="gr-canvas-container" id="canvas-area">
+                    <div class="gr-wires">
+                        <svg width="1200" height="320">
+                            <path d="M 230 150 L 320 150" class="gr-wire" style="stroke: var(--color-text-primary);" />
+                            <path d="M 320 150 C 350 150, 350 90, 420 90" class="gr-wire" style="stroke: var(--color-text-primary);" />
+                            <path d="M 320 150 C 350 150, 350 210, 420 210" class="gr-wire" style="stroke: var(--color-text-primary);" />
+                            
+                            <path d="M 570 90 L 650 90" class="gr-wire" style="stroke: var(--color-text-primary); opacity: 0.3" />
+                            <path d="M 570 210 L 650 210" class="gr-wire" style="stroke: var(--color-text-primary); opacity: 0.3" />
+                        </svg>
+                    </div>
+
+                    <div class="gr-block block-source" style="top: 80px; left: 80px; width: 150px;">
+                        <div class="gr-header">Signal Source</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key">Sample Rate:</span> 32k</div>
+                            <div class="gr-param"><span class="gr-key">Waveform:</span> Cosine</div>
+                            <div class="gr-param"><span class="gr-key">Freq:</span> 500</div>
+                        </div>
+                        <div class="gr-port port-out type-complex"></div>
+                    </div>
+
+                    <div class="gr-block block-trans" style="top: 50px; left: 420px; width: 150px;">
+                        <div class="gr-header">Transcendental</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key">Name:</span> <span class="text-emerald-600 font-bold">cos</span></div>
+                            <div class="gr-param text-gray-500 italic">"Calculadora Coseno"</div>
+                        </div>
+                        <div class="gr-port port-in type-complex"></div>
+                        <div class="gr-port port-out type-complex"></div>
+                    </div>
+
+                    <div class="gr-block block-trans" style="top: 170px; left: 420px; width: 150px;">
+                        <div class="gr-header">Transcendental</div>
+                        <div class="gr-body">
+                            <div class="gr-param"><span class="gr-key">Name:</span> <span class="text-emerald-600 font-bold">sin</span></div>
+                            <div class="gr-param text-gray-500 italic">"Calculadora Seno"</div>
+                        </div>
+                        <div class="gr-port port-in type-complex"></div>
+                        <div class="gr-port port-out type-complex"></div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            <div class="flex flex-col gap-4">
+                <h2 class="text-xl font-bold text-primary flex items-center gap-2">
+                    <span class="bg-emerald-100 text-emerald-700 w-8 h-8 flex items-center justify-center rounded-full text-sm">1</span>
+                    ¿Qué significa "Transcendental"?
+                </h2>
+                
+                <div class="info-card border-l-4 border-emerald-500" style="background-color: var(--color-accent-light);">
+                    <h4 class="font-bold text-emerald-800 mb-2">Definición Simple</h4>
+                    <p class="text-sm text-primary mb-3 leading-relaxed">
+                        En GNU Radio, esta caja es simplemente una <strong>Calculadora Científica</strong>. 
+                        No te asustes por el nombre matemático.
+                    </p>
+                    <p class="text-sm text-primary font-bold border-t border-emerald-200 pt-2 mt-2">
+                        ¿Para qué sirve exactamente?
+                    </p>
+                    <p class="text-xs text-primary mt-1">
+                        Sirve para crear <strong>coordenadas (X, Y)</strong> a partir de un ángulo o valor puro. 
+                        Si imaginas que la señal es un ángulo que va girando, el <strong>Coseno</strong> te da la posición horizontal y el <strong>Seno</strong> la vertical. Juntos, pueden dibujar círculos perfectos (señales complejas).
+                    </p>
+                </div>
+
+                <div class="bg-secondary p-5 rounded-xl shadow-sm border border-custom">
+                    <h4 class="font-bold text-secondary text-sm mb-4 uppercase tracking-wide">Analogía: La Cocina</h4>
+                    
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center text-2xl">🥔</div>
+                        <div class="flex-1">
+                            <p class="text-xs font-bold text-secondary">ENTRADA (Señal)</p>
+                            <p class="text-sm font-bold text-primary">Una patata cruda</p>
+                        </div>
+                        <div class="text-emerald-500 font-bold">➜</div>
+                    </div>
+
+                    <div class="flex items-center gap-4 mb-6 pl-4 border-l-2 border-dashed border-custom">
+                        <div class="w-12 h-12 bg-emerald-100 rounded border-2 border-emerald-500 flex items-center justify-center text-xl">🔥</div>
+                        <div class="flex-1">
+                            <p class="text-xs font-bold text-emerald-600">CAJA TRANSCENDENTAL (Función: Freír)</p>
+                            <p class="text-sm text-secondary">Procesa el ingrediente y lo transforma.</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center text-2xl">🍟</div>
+                        <div class="flex-1">
+                            <p class="text-xs font-bold text-secondary">SALIDA</p>
+                            <p class="text-sm font-bold text-primary">Patatas fritas</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="flex flex-col gap-4">
+                <h2 class="text-xl font-bold text-primary flex items-center gap-2">
+                    <span class="bg-orange-100 text-orange-700 w-8 h-8 flex items-center justify-center rounded-full text-sm">2</span>
+                    La Gran Diferencia
+                </h2>
+                
+                <div class="bg-secondary rounded-xl shadow-lg border border-custom overflow-hidden">
+                    <div class="grid grid-cols-2 divide-x divide-custom">
+                        
+                        <div class="p-4" style="background-color: var(--color-accent-light);">
+                            <h4 class="text-center font-bold text-emerald-700 mb-2">Transcendental</h4>
+                            <div class="h-20 flex flex-col items-center justify-center mb-2">
+                                <div class="text-2xl font-mono mb-1 text-primary">In: <span class="font-bold">0.5</span></div>
+                                <div class="text-xs text-secondary">Aplico coseno(0.5)</div>
+                                <div class="text-2xl font-mono mt-1 text-emerald-600 font-bold">0.87</div>
+                            </div>
+                            <p class="text-xs text-center text-secondary leading-tight">
+                                <strong>Transforma el valor.</strong> Calcula algo nuevo usando matemáticas.
+                            </p>
+                        </div>
+
+                        <div class="p-4" style="background-color: rgba(249, 115, 22, 0.1);">
+                            <h4 class="text-center font-bold text-orange-700 mb-2">Complex to Float</h4>
+                            <div class="h-20 flex flex-col items-center justify-center mb-2">
+                                <div class="text-lg font-mono mb-1 text-primary">In: <span class="font-bold">3 + 4j</span></div>
+                                <div class="text-xs text-secondary">Separar partes</div>
+                                <div class="flex gap-2 text-lg font-mono mt-1 font-bold">
+                                    <span class="text-orange-600">3</span>
+                                    <span class="text-gray-400">|</span>
+                                    <span class="text-orange-600">4</span>
+                                </div>
+                            </div>
+                            <p class="text-xs text-center text-secondary leading-tight">
+                                <strong>Desempaqueta.</strong> No calcula, solo separa lo que ya venía junto.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="p-4 bg-primary border-t border-custom">
+                        <h5 class="font-bold text-sm text-primary mb-2">Analogía del Sandwich 🥪</h5>
+                        <ul class="text-sm space-y-3">
+                            <li class="flex gap-3">
+                                <span class="text-orange-500 font-bold">Complex to Float:</span>
+                                <span class="text-secondary">Coges un sandwich y separas el jamón del pan. Tienes los mismos ingredientes, pero separados.</span>
+                            </li>
+                            <li class="flex gap-3">
+                                <span class="text-emerald-500 font-bold">Transcendental:</span>
+                                <span class="text-secondary">Metes el sandwich en una licuadora. Lo que sale es algo totalmente distinto (un batido).</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="bg-gray-900 rounded-xl p-4 shadow-inner text-white">
+                    <div class="flex justify-between items-center mb-2">
+                        <h4 class="text-xs font-bold text-gray-400 uppercase">Osciloscopio: Input vs Output</h4>
+                        <div class="text-[10px] text-gray-500">Live Simulation</div>
+                    </div>
+                    <div class="h-32 w-full">
+                        <canvas id="comparisonChart"></canvas>
+                    </div>
+                    <div class="flex justify-center gap-4 mt-2 text-[10px]">
+                        <div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-gray-500"></div> Entrada (Valor)</div>
+                        <div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-emerald-400"></div> Salida (Coseno)</div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const themeBtn = document.getElementById('theme-btn');
+            const themes = ['cream', 'dark'];
+            let curTheme = 0;
+            themeBtn.onclick = () => {
+                curTheme = (curTheme + 1) % themes.length;
+                document.documentElement.className = `theme-${themes[curTheme]}`;
+            };
+
+            const ctx = document.getElementById('comparisonChart').getContext('2d');
+            const totalPoints = 100;
+            const labels = Array.from({length: totalPoints}, (_, i) => i);
+            
+            const chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Entrada',
+                            data: Array(totalPoints).fill(0),
+                            borderColor: '#6b7280', 
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            tension: 0.4,
+                            borderDash: [5, 5]
+                        },
+                        {
+                            label: 'Salida',
+                            data: Array(totalPoints).fill(0),
+                            borderColor: '#34d399',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, animation: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { display: false },
+                        y: { display: true, grid: { color: '#333' }, min: -1.5, max: 1.5, ticks: { display: false } }
+                    }
+                }
+            });
+
+            let time = 0;
+            function animate() {
+                time += 0.05;
+                const newDataInput = [];
+                const newDataOutput = [];
+                
+                for(let i = 0; i < totalPoints; i++) {
+                    const t = time + (i * 0.05);
+                    const inputVal = Math.sin(t * 0.5) * 1.5; 
+                    const outputVal = Math.cos(inputVal * 3); 
+                    
+                    newDataInput.push(inputVal * 0.5); 
+                    newDataOutput.push(outputVal);
+                }
+                
+                chart.data.datasets[0].data = newDataInput;
+                chart.data.datasets[1].data = newDataOutput;
+                chart.update('none');
+                requestAnimationFrame(animate);
+            }
+            animate();
+        });
+    </script>
+</body>
+</html>

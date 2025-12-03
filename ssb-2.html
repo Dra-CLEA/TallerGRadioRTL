@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="es" class="theme-cream">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSB: Modulador Completo (Weaver/Fase)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root.theme-cream {
+            --color-bg-primary: #fdfaf4;
+            --color-bg-secondary: #ffffff;
+            --color-text-primary: #3a3a3a;
+            --color-text-secondary: #707070;
+            --color-border: #e0e0e0;
+            --color-accent: #3b82f6; 
+            --color-chart-grid: rgba(0, 0, 0, 0.1);
+            --color-block-info: #eef2ff;
+        }
+        :root.theme-dark {
+            --color-bg-primary: #1e1e1e;
+            --color-bg-secondary: #2d2d2d;
+            --color-text-primary: #e0e0e0;
+            --color-text-secondary: #aaaaaa;
+            --color-border: #444444;
+            --color-accent: #60a5fa;
+            --color-chart-grid: rgba(255, 255, 255, 0.2);
+            --color-block-info: #374151;
+        }
+        
+        .bg-primary { background-color: var(--color-bg-primary); }
+        .bg-secondary { background-color: var(--color-bg-secondary); }
+        .text-primary { color: var(--color-text-primary); }
+        .text-secondary { color: var(--color-text-secondary); }
+        .border-custom { border-color: var(--color-border); }
+        .text-accent { color: var(--color-accent); }
+        .bg-block-info { background-color: var(--color-block-info); }
+
+        html, body { transition: background-color 0.3s ease, color 0.3s ease; }
+
+        .gr-canvas-container {
+            position: relative; width: 100%; height: 500px;
+            background-color: var(--color-bg-primary); 
+            border: 1px solid var(--color-border);
+            border-radius: 8px; overflow-x: auto; overflow-y: hidden;
+            font-family: sans-serif; user-select: none;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+            background-image: radial-gradient(var(--color-border) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        
+        .gr-block {
+            position: absolute; 
+            background-color: #f3f4f6; 
+            border: 2px solid #333; 
+            border-radius: 4px; padding: 5px; 
+            box-shadow: 3px 3px 0px rgba(0,0,0,0.1); 
+            z-index: 10; font-size: 10px; color: black; white-space: nowrap;
+        }
+        .gr-block:hover { transform: scale(1.02); z-index: 20; border-color: var(--color-accent); cursor: help; }
+        .theme-dark .gr-block { background-color: #e5e7eb; border-color: #666; }
+
+        .gr-title { font-weight: bold; text-align: center; border-bottom: 1px solid #999; margin-bottom: 3px; padding-bottom: 2px; font-size: 11px;}
+        .gr-param { font-family: monospace; margin-bottom: 1px; font-size: 9px; overflow: hidden; text-overflow: ellipsis; display: block; }
+        .gr-param-key { font-weight: 600; color: #4b5563; }
+        
+        .gr-port { width: 10px; height: 10px; border: 1px solid #000; position: absolute; cursor: pointer; }
+        .gr-port.complex { background-color: #3b82f6; } 
+        .gr-port.float { background-color: #f97316; }   
+        .gr-port.in { left: -6px; } .gr-port.out { right: -6px; }
+        
+        .gr-wires svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+        .gr-wire { fill: none; stroke-width: 2; opacity: 0.8; }
+        .wire-float { stroke: #f97316; }
+        .wire-complex { stroke: #3b82f6; }
+
+        .info-card { @apply bg-block-info p-3 rounded-lg text-xs text-secondary border border-custom mb-3 transition-all hover:shadow-md; }
+        .info-title { @apply font-bold text-accent mb-1 block text-sm flex items-center gap-2; }
+        
+        canvas { max-height: 220px; width: 100%; }
+        input[type=range] { height: 6px; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body class="bg-primary text-primary font-sans">
+
+    <main class="min-h-screen p-4 md:p-6 max-w-[1400px] mx-auto flex flex-col gap-6">
+        
+        <header class="flex justify-between items-center border-b border-custom pb-4">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg text-xl">SSB</div>
+                <div>
+                    <h2 class="text-2xl font-bold text-primary leading-none">Modulador SSB Completo</h2>
+                    <span class="text-xs text-secondary font-mono">Método de Desplazamiento de Fase (Hartley/Weaver Arch)</span>
+                </div>
+            </div>
+            <button id="theme-toggle-btn" class="p-2 rounded-full bg-secondary border border-custom shadow-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-transform hover:scale-105">
+                <span>🎨</span>
+            </button>
+        </header>
+
+        <section class="w-full">
+            <div class="bg-secondary rounded-xl shadow-lg border border-custom p-1">
+                <div class="flex justify-between items-center px-4 py-2 border-b border-custom bg-primary rounded-t-lg">
+                    <h3 class="font-bold text-accent flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                        Diagrama de Flujo Completo
+                    </h3>
+                    <div class="text-[10px] text-secondary font-mono flex gap-4">
+                        <span>Audio: ~1kHz</span>
+                        <span>Carrier: 10kHz</span>
+                    </div>
+                </div>
+                
+                <div class="gr-canvas-container" id="flowgraph-area">
+                    <div class="gr-wires">
+                        <svg width="1400" height="500">
+                            <path d="M 130 90 L 200 90" class="gr-wire wire-float"/>
+                            <path d="M 330 90 L 400 90" class="gr-wire wire-float"/>
+                            <path d="M 500 90 L 560 90" class="gr-wire wire-complex"/>
+                            
+                            <path d="M 130 350 L 380 350" class="gr-wire wire-complex"/>
+
+                            
+                            <path d="M 680 80 C 700 80, 720 180, 780 180" class="gr-wire wire-float" style="stroke-dasharray: 2;"/>
+                            
+                            <path d="M 500 340 C 550 340, 650 200, 780 200" class="gr-wire wire-float"/>
+
+                            <path d="M 680 100 C 700 100, 720 280, 780 280" class="gr-wire wire-float" style="stroke-dasharray: 2;"/>
+                            
+                            <path d="M 500 360 C 550 360, 650 300, 780 300" class="gr-wire wire-float"/>
+
+                            
+                            <path d="M 880 190 C 920 190, 920 230, 960 230" class="gr-wire wire-float"/>
+                            <path d="M 880 190 C 920 190, 920 330, 960 330" class="gr-wire wire-float"/>
+
+                            <path d="M 880 290 C 920 290, 920 250, 960 250" class="gr-wire wire-float"/>
+                            <path d="M 880 290 C 920 290, 920 350, 960 350" class="gr-wire wire-float"/>
+
+                        </svg>
+                    </div>
+
+                    <div class="gr-block source" style="top: 50px; left: 10px; width: 120px;">
+                        <div class="gr-title">Audio Source</div>
+                        <span class="gr-param">Freq: <span id="disp-freq">1k</span></span>
+                        <span class="gr-param">Ampl: 1</span>
+                        <div class="gr-port out float" style="top: 50%;"></div>
+                    </div>
+
+                    <div class="gr-block filter" style="top: 50px; left: 200px; width: 130px; border-color: #ef4444;">
+                        <div class="gr-title text-red-600">BPF (Voice)</div>
+                        <span class="gr-param">300Hz - 2.7kHz</span>
+                        <div class="gr-port in float" style="top: 50%;"></div>
+                        <div class="gr-port out float" style="top: 50%;"></div>
+                    </div>
+
+                    <div class="gr-block math" style="top: 60px; left: 400px; width: 100px;">
+                        <div class="gr-title">Hilbert</div>
+                        <span class="gr-param">Shift: -90°</span>
+                        <div class="gr-port in float" style="top: 50%;"></div>
+                        <div class="gr-port out complex" style="top: 50%;"></div>
+                    </div>
+
+                    <div class="gr-block math" style="top: 60px; left: 560px; width: 120px;">
+                        <div class="gr-title">C2F (Audio)</div>
+                        <div class="gr-port in complex" style="top: 50%;"></div>
+                        <div class="absolute right-0 top-[30%] text-[9px] font-bold text-gray-500 pr-1">Re (I)</div>
+                        <div class="gr-port out float" style="top: 30%;"></div>
+                        <div class="absolute right-0 top-[70%] text-[9px] font-bold text-gray-500 pr-1">Im (Q)</div>
+                        <div class="gr-port out float" style="top: 70%;"></div>
+                    </div>
+
+                    <div class="gr-block source" style="top: 310px; left: 10px; width: 120px; border-color: #8b5cf6;">
+                        <div class="gr-title text-purple-600">Carrier Src</div>
+                        <span class="gr-param">Freq: 10k</span>
+                        <span class="gr-param">Wave: Cos/Sin</span>
+                        <div class="gr-port out complex" style="top: 50%;"></div>
+                    </div>
+
+                    <div class="gr-block math" style="top: 310px; left: 380px; width: 120px;">
+                        <div class="gr-title">C2F (Carrier)</div>
+                        <div class="gr-port in complex" style="top: 50%;"></div>
+                        <div class="absolute right-0 top-[30%] text-[9px] font-bold text-gray-500 pr-1">Re (I)</div>
+                        <div class="gr-port out float" style="top: 30%;"></div>
+                        <div class="absolute right-0 top-[70%] text-[9px] font-bold text-gray-500 pr-1">Im (Q)</div>
+                        <div class="gr-port out float" style="top: 70%;"></div>
+                    </div>
+
+                    <div class="gr-block math" style="top: 170px; left: 780px; width: 100px;">
+                        <div class="gr-title">Multiply 1</div>
+                        <span class="gr-param">Re(A) * Re(C)</span>
+                        <div class="gr-port in float" style="top: 30%;"></div>
+                        <div class="gr-port in float" style="top: 70%;"></div>
+                        <div class="gr-port out float" style="top: 50%;"></div>
+                    </div>
+
+                    <div class="gr-block math" style="top: 270px; left: 780px; width: 100px;">
+                        <div class="gr-title">Multiply 2</div>
+                        <span class="gr-param">Im(A) * Im(C)</span>
+                        <div class="gr-port in float" style="top: 30%;"></div>
+                        <div class="gr-port in float" style="top: 70%;"></div>
+                        <div class="gr-port out float" style="top: 50%;"></div>
+                    </div>
+
+                    <div class="gr-block math" style="top: 220px; left: 960px; width: 100px; background-color: #dbeafe;">
+                        <div class="gr-title">ADD (LSB)</div>
+                        <span class="gr-param text-blue-600 font-bold">10k - 1k = 9k</span>
+                        <div class="gr-port in float" style="top: 30%;"></div>
+                        <div class="gr-port in float" style="top: 70%;"></div>
+                        <div class="gr-port out float" style="top: 50%;"></div>
+                    </div>
+
+                    <div class="gr-block math" style="top: 320px; left: 960px; width: 100px; background-color: #fae8ff;">
+                        <div class="gr-title">SUB (USB)</div>
+                        <span class="gr-param text-purple-600 font-bold">10k + 1k = 11k</span>
+                        <div class="gr-port in float" style="top: 30%;"></div>
+                        <div class="gr-port in float" style="top: 70%;"></div>
+                        <div class="gr-port out float" style="top: 50%;"></div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <div class="lg:col-span-4 flex flex-col gap-4">
+                
+                <div class="bg-secondary p-4 rounded-xl shadow border border-custom">
+                    <h3 class="font-bold text-primary mb-3 border-b border-custom pb-2">Matemáticas del Proceso</h3>
+                    
+                    <div class="space-y-3">
+                        <div class="info-card border-l-4 border-l-purple-500">
+                            <span class="info-title">1. Portadora (Carrier)</span>
+                            <p>Generamos dos señales a 10kHz:</p>
+                            <ul class="list-disc pl-4 mt-1 opacity-90 font-mono text-[10px]">
+                                <li>Re = Cos(ωc t)</li>
+                                <li>Im = Sin(ωc t)</li>
+                            </ul>
+                        </div>
+
+                        <div class="info-card border-l-4 border-l-orange-500">
+                            <span class="info-title">2. Multiplicación (Mixing)</span>
+                            <p>Mezclamos componentes en paralelo:</p>
+                            <ul class="list-disc pl-4 mt-1 opacity-90 font-mono text-[10px]">
+                                <li>M1 = Cos(ωm) × Cos(ωc)</li>
+                                <li>M2 = Sin(ωm) × Sin(ωc)</li>
+                            </ul>
+                            <p class="mt-2 text-[10px]">Esto genera bandas laterales en ambos productos (suma y resta de frecuencias).</p>
+                        </div>
+
+                        <div class="info-card border-l-4 border-l-green-600">
+                            <span class="info-title">3. Suma y Resta (El Truco)</span>
+                            <p>Aquí se cancelan frecuencias indeseadas:</p>
+                            <div class="mt-2 bg-primary p-2 rounded font-mono text-[10px]">
+                                <strong>Resta (USB):</strong><br>
+                                M1 - M2 = Cos(ωc + ωm)<br>
+                                <span class="text-purple-600">→ 11kHz (Solo Superior)</span>
+                            </div>
+                            <div class="mt-2 bg-primary p-2 rounded font-mono text-[10px]">
+                                <strong>Suma (LSB):</strong><br>
+                                M1 + M2 = Cos(ωc - ωm)<br>
+                                <span class="text-blue-600">→ 9kHz (Solo Inferior)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-secondary p-4 rounded-xl shadow border border-custom">
+                     <label class="text-xs font-bold text-secondary flex justify-between mb-2">
+                        <span>Frecuencia Audio</span>
+                        <span id="val-freq" class="text-accent">1000 Hz</span>
+                    </label>
+                    <input type="range" id="slider-freq" min="500" max="3000" step="100" value="1000" class="w-full accent-blue-500">
+                </div>
+            </div>
+
+            <div class="lg:col-span-8 flex flex-col gap-4">
+                
+                <div class="bg-secondary p-4 rounded-xl shadow border border-custom flex-grow">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="font-bold text-primary text-sm">Analizador de Espectro (Salida RF)</h3>
+                        <div class="flex gap-4 text-[10px]">
+                            <span class="flex items-center gap-1"><div class="w-3 h-1 bg-purple-500"></div> Salida SUB (USB)</span>
+                            <span class="flex items-center gap-1"><div class="w-3 h-1 bg-blue-500"></div> Salida ADD (LSB)</span>
+                            <span class="flex items-center gap-1"><div class="w-3 h-3 border border-gray-400 border-dashed"></div> Portadora (10k)</span>
+                        </div>
+                    </div>
+                    <div class="bg-primary p-2 rounded border border-custom relative h-80">
+                        <canvas id="spectrum-chart"></canvas>
+                    </div>
+                    <p class="text-xs text-secondary mt-2 text-center bg-block-info p-2 rounded">
+                        Nota cómo el pico <strong>Morado (USB)</strong> está a la derecha de 10k, y el <strong>Azul (LSB)</strong> a la izquierda.
+                        <br>Al cambiar la frecuencia de audio, se alejan más o menos del centro.
+                    </p>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const els = {
+                sliderFreq: document.getElementById('slider-freq'),
+                dispFreq: document.getElementById('disp-freq'),
+                valFreq: document.getElementById('val-freq'),
+                themeBtn: document.getElementById('theme-toggle-btn')
+            };
+
+            const themes = ['cream', 'dark'];
+            let currentThemeIdx = 0;
+            function updateTheme() {
+                const theme = themes[currentThemeIdx];
+                document.documentElement.className = `theme-${theme}`;
+                
+                const style = getComputedStyle(document.documentElement);
+                const gridColor = style.getPropertyValue('--color-chart-grid').trim();
+                
+                if(window.chartSpectrum) {
+                    window.chartSpectrum.options.scales.x.grid.color = gridColor;
+                    window.chartSpectrum.options.scales.y.grid.color = gridColor;
+                    window.chartSpectrum.update('none');
+                }
+            }
+            els.themeBtn.addEventListener('click', () => {
+                currentThemeIdx = (currentThemeIdx + 1) % themes.length;
+                updateTheme();
+            });
+
+            const ctxSpec = document.getElementById('spectrum-chart').getContext('2d');
+            window.chartSpectrum = new Chart(ctxSpec, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 81}, (_, i) => 6000 + i * 100), 
+                    datasets: [
+                        {
+                            label: 'USB (Resta)',
+                            data: [],
+                            borderColor: '#a855f7',
+                            backgroundColor: 'rgba(168, 85, 247, 0.2)',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            fill: true,
+                            tension: 0.1
+                        },
+                        {
+                            label: 'LSB (Suma)',
+                            data: [],
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            fill: true,
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Carrier Reference',
+                            data: Array(81).fill(null).map((_,i) => i===40 ? 1 : 0),
+                            borderColor: '#9ca3af',
+                            borderWidth: 1,
+                            borderDash: [5, 5],
+                            pointRadius: 0,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, animation: false,
+                    plugins: { legend: { display: false } },
+                    scales: { 
+                        x: { 
+                            title: { display: true, text: 'Frecuencia (Hz)' },
+                            ticks: { callback: function(val, index) { return index % 10 === 0 ? this.getLabelForValue(val) : ''; } }
+                        }, 
+                        y: { min: 0, max: 1.2, display: false } 
+                    }
+                }
+            });
+
+            let time = 0;
+            const carrierFreq = 10000;
+            
+            function animate() {
+                let audioFreq = parseInt(els.sliderFreq.value);
+                els.dispFreq.textContent = (audioFreq/1000).toFixed(1) + 'k';
+                els.valFreq.textContent = audioFreq + " Hz";
+
+                const targetUSB = carrierFreq + audioFreq;
+                const targetLSB = carrierFreq - audioFreq;
+
+                
+                const labels = window.chartSpectrum.data.labels;
+                
+                const usbData = labels.map(f => {
+                    const diff = f - targetUSB;
+                    return Math.exp(-(diff*diff)/(2 * 200 * 200));
+                });
+
+                const lsbData = labels.map(f => {
+                    const diff = f - targetLSB;
+                    return Math.exp(-(diff*diff)/(2 * 200 * 200));
+                });
+
+                const noise = () => Math.random() * 0.05;
+
+                window.chartSpectrum.data.datasets[0].data = usbData.map(v => v + noise());
+                window.chartSpectrum.data.datasets[1].data = lsbData.map(v => v + noise());
+
+                window.chartSpectrum.update('none');
+
+                requestAnimationFrame(animate);
+            }
+
+            updateTheme();
+            animate();
+        });
+    </script>
+</body>
+</html>
