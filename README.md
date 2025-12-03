@@ -54,7 +54,7 @@ En GNURadio, para lograr una AM estándar (y no una DSB-SC o Doble Banda Lateral
 
 Accede al simulador web para experimentar con el Teorema de Nyquist, ver el efecto de la sobremodulación en el dominio del tiempo y analizar el espectro de frecuencia resultante.
 
-[**Ver Simulación: Modulación AM**](./modam.html)
+[**Ver Simulación: Modulación AM**](https://dra-clea.github.io/TallerGRadioRTL/modam.html)
 
 ---
 ## 2. Fundamentos: Generación y Superposición
@@ -76,7 +76,7 @@ Antes de procesar señales de radio complejas, es fundamental entender cómo se 
 ### ➡️ Simulación Interactiva
 Prueba a sumar dos frecuencias cercanas (ej. 1000Hz y 1100Hz) para ver el fenómeno de "batido" en el tiempo.
 
-[**Ver Simulación: Generador de Ondas**](./dam-1.html)
+[**Ver Simulación: Generador de Ondas**](https://dra-clea.github.io/TallerGRadioRTL/dam-1.html)
 
 ---
 
@@ -103,7 +103,7 @@ Este módulo inicia la cadena de recepción. Partimos de una grabación de radio
 ### ➡️ Simulación Interactiva
 Visualiza cómo la señal se mueve en el espectro al cambiar la frecuencia del oscilador local y observa el efecto del filtrado.
 
-[**Ver Simulación: Demodulación y Decimación**](./dam-2.html)
+[**Ver Simulación: Demodulación y Decimación**](https://dra-clea.github.io/TallerGRadioRTL/dam-2.html)
 
 ---
 
@@ -130,7 +130,7 @@ Etapa final del receptor. Convertimos la señal de radiofrecuencia (ya filtrada 
 ### ➡️ Simulación Interactiva
 Experimenta con el bloque DC Blocker para ver cómo afecta a la forma de onda y entiende visualmente la diferencia entre la señal de radio (espectro) y la de audio (tiempo).
 
-[**Ver Simulación: Receptor AM Completo**](./dam-3.html)
+[**Ver Simulación: Receptor AM Completo**](https://dra-clea.github.io/TallerGRadioRTL/dam-3.html)
 
 ---
 ## 5. Banda Lateral Única (SSB): Eficiencia Espectral
@@ -152,7 +152,7 @@ $$z(t) = m(t) + j\cdot\hat{m}(t)$$
 
 Al combinar estas dos, eliminamos las frecuencias negativas del espectro, lo que es el primer paso para la SSB.
 
-[**➡️ Simulación 1: Visualizar el Desfase de Hilbert**](./ssb-1.html)
+[**➡️ Simulación 1: Visualizar el Desfase de Hilbert**](https://dra-clea.github.io/TallerGRadioRTL/ssb-1.html)
 *(Observa en el osciloscopio cómo la señal azul siempre persigue a la naranja con un retardo exacto de 1/4 de ciclo)*.
 
 ---
@@ -175,7 +175,7 @@ Para obtener la Banda Lateral Superior (USB) o Inferior (LSB), realizamos la mez
     * Si **Restamos** los resultados $\rightarrow$ Las frecuencias bajas se cancelan $\rightarrow$ Queda **USB**.
     * Si **Sumamos** los resultados $\rightarrow$ Las frecuencias altas se cancelan $\rightarrow$ Queda **LSB**.
 
-[**➡️ Simulación 2: Modulador SSB Interactivo**](./ssb-2.html)
+[**➡️ Simulación 2: Modulador SSB Interactivo**](https://dra-clea.github.io/TallerGRadioRTL/ssb-2.html)
 *(Mueve el slider de frecuencia de audio y observa cómo el pico en el espectro salta de un lado a otro de la portadora fantasma)*.
 
 ---
@@ -191,7 +191,7 @@ Este diagrama muestra cómo preparar un transmisor SSB real. En GNU Radio, podem
     * Para guardarla en formato IQ, usamos un bloque `Float to Complex`. Conectamos la señal SSB a la entrada **Real** y una fuente constante de **0** a la entrada **Imaginaria**.
     * Esto crea un archivo compatible con transmisores SDR.
 
-[**➡️ Simulación 3: Sistema Transmisor con Micrófono/Wav**](./ssb-3.html)
+[**➡️ Simulación 3: Sistema Transmisor con Micrófono/Wav**](https://dra-clea.github.io/TallerGRadioRTL/ssb-3.html)
 
 ---
 
@@ -207,7 +207,7 @@ El bloque **Frequency Xlating FIR Filter** es una "navaja suiza" que realiza tre
     $$256.000 / 8 = 32.000 \text{ Hz}$$
     Ahora la señal es compatible con el sistema de audio.
 
-[**➡️ Simulación 4: Sintonizador y Decimador**](./ssb-4.html)
+[**➡️ Simulación 4: Sintonizador y Decimador**](https://dra-clea.github.io/TallerGRadioRTL/ssb-4.html)
 *(Usa el slider de "Tuning" para arrastrar la señal roja hacia el centro del filtro verde. Solo escucharás algo cuando la señal esté dentro del filtro)*.
 
 ---
@@ -225,7 +225,7 @@ El método Weaver es una técnica avanzada para demodular SSB que evita algunos 
 
 Este diagrama final conecta todo: entrada decimada $\rightarrow$ separación I/Q $\rightarrow$ mezcla Weaver $\rightarrow$ Audio Sink.
 
-[**➡️ Simulación 5: Demodulador Weaver Completo**](./ssb-5.html)
+[**➡️ Simulación 5: Demodulador Weaver Completo**](https://dra-clea.github.io/TallerGRadioRTL/ssb-5.html)
 *(Experimenta con los botones LSB/USB para ver cómo la matemática invierte el espectro y recupera el audio original)*.
 
 ---
@@ -259,7 +259,7 @@ En el mundo digital teórico, los bits son cuadrados perfectos (cambian de 0 a 1
 ### ➡️ Simulación Interactiva
 Observa la transformación de los bits: de puntos invisibles a cuadrados rojos, y finalmente a la onda verde suave lista para transmisión.
 
-[**Ver Simulación: Transmisor BPSK Básico**](./bpsk-1.html)
+[**Ver Simulación: Transmisor BPSK Básico**](https://dra-clea.github.io/TallerGRadioRTL/bpsk-1.html)
 
 ---
 
@@ -270,7 +270,7 @@ Para comparar la señal original (bits cuadrados) con la señal filtrada (onda s
 
 * **Bloque Delay:** No modifica la señal, solo la retiene en memoria $N$ muestras para compensar la latencia del filtro paralelo.
 
-[**➡️ Simulación: Compensación de Retardo**](./bpsk-2.html)
+[**➡️ Simulación: Compensación de Retardo**](https://dra-clea.github.io/TallerGRadioRTL/bpsk-2.html)
 
 ---
 
@@ -286,7 +286,7 @@ $$RRC_{TX} \cdot RRC_{RX} = \text{Raised Cosine Completo}$$
 
 Esto maximiza la relación señal-ruido (SNR) al funcionar como un *filtro adaptado*.
 
-[**➡️ Simulación: Filtro RRC**](./bpsk-3.html)
+[**➡️ Simulación: Filtro RRC**](https://dra-clea.github.io/TallerGRadioRTL/bpsk-3.html)
 
 ---
 
@@ -310,7 +310,7 @@ Para recuperar los datos, realizamos el proceso inverso: bajamos la señal de fr
 ### ➡️ Simulación Interactiva
 Prueba a subir el nivel de ruido en la simulación y observa cómo el "ojo" se cierra, haciendo imposible distinguir los datos.
 
-[**Ver Simulación: Receptor y Diagrama de Ojo**](./bpsk-4.html)
+[**Ver Simulación: Receptor y Diagrama de Ojo**](https://dra-clea.github.io/TallerGRadioRTL/bpsk-4.html)
 
 ---
 ## 7. FSK (Frequency Shift Keying) con VCO
@@ -334,7 +334,7 @@ Antes de modular, necesitamos acondicionar los datos. Un ordenador genera bits i
     * Esto crea un "pulso" largo que dura lo suficiente para ser escuchado.
 * **UChar to Float:** Convertimos los datos de tipo Byte (morado) a Float (naranja) porque el VCO funciona con números decimales (Voltaje).
 
-[**➡️ Simulación 1: Tubería de Datos**](./fsk-1.html)
+[**➡️ Simulación 1: Tubería de Datos**](https://dra-clea.github.io/TallerGRadioRTL/fsk-1.html)
 
 ---
 
@@ -365,7 +365,7 @@ Necesitamos generar 2125 Hz y 2295 Hz. Usando la constante $K = 2500$:
 * **Add Const (0.850):** Sumamos 0.850 a todo. Si entra un '0', sale 0.850V (2125 Hz).
 * **Multiply Const (0.068):** Si entra un '1', lo multiplicamos por 0.068. Al sumarle el 0.850 base, obtenemos $0.068 + 0.850 = 0.918V$ (2295 Hz).
 
-[**➡️ Simulación 2: Matemáticas VCO interactivas**](./fsk-2.html)
+[**➡️ Simulación 2: Matemáticas VCO interactivas**](https://dra-clea.github.io/TallerGRadioRTL/fsk-2.html)
 
 ---
 
@@ -378,7 +378,7 @@ En el receptor, queremos aislar estas dos frecuencias. Para facilitar la demodul
     * El **Space (2125)** se mueve a $-85 \text{ Hz}$.
     * El **Mark (2295)** se mueve a $+85 \text{ Hz}$.
 
-[**➡️ Simulación 3: Filtro Traductor**](./fsk-3.html)
+[**➡️ Simulación 3: Filtro Traductor**](https://dra-clea.github.io/TallerGRadioRTL/fsk-3.html)
 
 ---
 
@@ -390,7 +390,7 @@ Una vez centrada la señal, usamos un **Quadrature Demod**. Este bloque calcula 
 * **Binary Slicer:** Toma la decisión final. Si la señal es positiva ($>0$), saca un byte **1**. Si es negativa ($<0$), saca un byte **0**.
 * **Verificación:** Usamos un bloque **Subtract** restando la señal recibida de la original (retardada por el bloque **Delay** para compensar el tiempo de viaje). Si la línea resultante es plana en 0, la transmisión es perfecta.
 
-[**➡️ Simulación 4: Demodulador y Verificación de Errores**](./fsk-4.html)
+[**➡️ Simulación 4: Demodulador y Verificación de Errores**](https://dra-clea.github.io/TallerGRadioRTL/fsk-4.html)
 
 ---
 ## 8. Conceptos Avanzados y Herramientas Extra
@@ -409,7 +409,7 @@ Un error común es confundir bloques que **transforman** valores con bloques que
     * Ejemplo: Entrada `3 + 4j` $\rightarrow$ Salida A `3`, Salida B `4`.
     * Analogía: Separar un sándwich en pan y jamón.
 
-[**➡️ Simulación: Diferencia Visual Interactiva**](./Extra1.html)
+[**➡️ Simulación: Diferencia Visual Interactiva**](https://dra-clea.github.io/TallerGRadioRTL/Extra1.html)
 
 ---
 
@@ -424,7 +424,7 @@ Para transmitir un archivo digital por radio, no podemos enviar "bytes" directam
     * Entrada: `0` $\rightarrow$ Salida: `-1` (Izquierda).
     * Entrada: `1` $\rightarrow$ Salida: `+1` (Derecha).
 
-[**➡️ Simulación: Visualizador de Mapeo de Bits**](./Extra2.html)
+[**➡️ Simulación: Visualizador de Mapeo de Bits**](https://dra-clea.github.io/TallerGRadioRTL/Extra2.html)
 
 ---
 
@@ -435,7 +435,7 @@ Además, este módulo explica el funcionamiento interno del **Diagrama de Ojo**.
 * **Ojo Abierto:** Señal limpia, el receptor distingue claramente entre 0 y 1.
 * **Ojo Cerrado:** Ruido o Jitter excesivo, la señal se cruza en el centro provocando errores de decisión.
 
-[**➡️ Simulación: Construyendo un Diagrama de Ojo**](./Extra3.html)
+[**➡️ Simulación: Construyendo un Diagrama de Ojo**](https://dra-clea.github.io/TallerGRadioRTL/Extra3.html)
 
 ---
 
@@ -446,6 +446,6 @@ El manejo de archivos y audio tiene trampas comunes relacionadas con la velocida
 * **Archivos .DAT (Raw Float):** Son solo listas de números sin metadatos. El ordenador intentará leerlos tan rápido como permita la CPU.
     * **¡Importante!** Si usas un archivo `.dat` en una simulación sin hardware de radio, debes usar un bloque **Throttle**. Este bloque frena el flujo de datos para igualar el `Sample Rate` deseado, evitando que la simulación se ejecute instantáneamente y cuelgue la interfaz.
 
-[**➡️ Simulación: Laboratorio de Audio AM**](./extra4.html)
+[**➡️ Simulación: Laboratorio de Audio AM**](https://dra-clea.github.io/TallerGRadioRTL/extra4.html)
 
 ---
